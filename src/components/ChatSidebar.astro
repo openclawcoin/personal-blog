@@ -1,7 +1,15 @@
 ﻿---
+import { siteConfig } from "../site.config";
+
+const chatProxy = siteConfig.chatProxy ?? { endpoint: "", token: "" };
 ---
 
-<aside class="chat-widget" data-chat-widget>
+<aside
+  class="chat-widget"
+  data-chat-widget
+  data-proxy-endpoint={chatProxy.endpoint}
+  data-proxy-token={chatProxy.token}
+>
   <section class="chat-panel">
     <header class="chat-head">
       <h3>国产模型聊天</h3>
@@ -22,6 +30,7 @@
           <select data-provider>
             <option value="deepseek">DeepSeek</option>
             <option value="qwen">千问 Qwen</option>
+            <option value="zhipu">智谱 GLM</option>
             <option value="doubao">豆包 Doubao</option>
           </select>
         </label>
@@ -35,7 +44,7 @@
       </div>
 
       <p class="chat-tip" data-tip>
-        若提示缺少 API Key，请在本文件中的 PROVIDERS 里填写。
+        推荐使用 Cloudflare 代理：前端不保存任何平台 API Key。
       </p>
     </section>
 
@@ -48,26 +57,27 @@
   const root = document.querySelector("[data-chat-widget]");
   if (!root) return;
 
-  // Fill your official API keys here.
+  const GATEWAY = {
+    endpoint: String(root.dataset.proxyEndpoint || "").trim(),
+    token: String(root.dataset.proxyToken || "").trim()
+  };
+
   const PROVIDERS = {
     deepseek: {
-      endpoint: "https://api.deepseek.com/v1/chat/completions",
-      models: ["deepseek-chat", "deepseek-reasoner"],
-      apiKey: ""
+      models: ["deepseek-chat", "deepseek-reasoner"]
     },
     qwen: {
-      endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
-      models: ["qwen-turbo", "qwen-plus", "qwen-max"],
-      apiKey: ""
+      models: ["qwen-turbo", "qwen-plus", "qwen-max"]
+    },
+    zhipu: {
+      models: ["glm-5", "glm-5-turbo", "glm-4.7-flash"]
     },
     doubao: {
-      endpoint: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
-      models: ["doubao-1-5-pro-32k-250115", "ep-xxxx"],
-      apiKey: ""
+      models: ["doubao-1-5-pro-32k-250115", "ep-xxxx"]
     }
   };
 
-  const STORAGE = "shrimp.static.chat.simple.v3";
+  const STORAGE = "shrimp.chat.proxy.v1";
 
   const nodes = {
     provider: root.querySelector("[data-provider]"),
@@ -86,11 +96,13 @@
     modelByProvider: {
       deepseek: "deepseek-chat",
       qwen: "qwen-turbo",
+      zhipu: "glm-5-turbo",
       doubao: "doubao-1-5-pro-32k-250115"
     },
     messagesByProvider: {
       deepseek: [],
       qwen: [],
+      zhipu: [],
       doubao: []
     }
   };
@@ -106,7 +118,7 @@
       const raw = localStorage.getItem(STORAGE);
       if (!raw) return;
       const parsed = JSON.parse(raw);
-      if (typeof parsed.provider === "string") state.provider = parsed.provider;
+      if (typeof parsed.provider === "string" && PROVIDERS[parsed.provider]) state.provider = parsed.provider;
       if (parsed.modelByProvider && typeof parsed.modelByProvider === "object") {
         state.modelByProvider = { ...state.modelByProvider, ...parsed.modelByProvider };
       }
@@ -114,6 +126,7 @@
         state.messagesByProvider = {
           deepseek: Array.isArray(parsed.messagesByProvider.deepseek) ? parsed.messagesByProvider.deepseek : [],
           qwen: Array.isArray(parsed.messagesByProvider.qwen) ? parsed.messagesByProvider.qwen : [],
+          zhipu: Array.isArray(parsed.messagesByProvider.zhipu) ? parsed.messagesByProvider.zhipu : [],
           doubao: Array.isArray(parsed.messagesByProvider.doubao) ? parsed.messagesByProvider.doubao : []
         };
       }
@@ -153,9 +166,9 @@
 
     nodes.model.value = selected;
 
-    nodes.tip.textContent = config.apiKey
-      ? "当前平台 API Key 已配置，可以直接聊天。"
-      : "当前平台未配置 API Key，请先编辑 src/components/ChatSidebar.astro。";
+    nodes.tip.textContent = GATEWAY.endpoint
+      ? "已启用 Cloudflare 代理，API Key 保存在后端。"
+      : "请在 src/site.config.ts 的 chatProxy.endpoint 填写 Worker 地址。";
   }
 
   function renderMessages() {
@@ -205,21 +218,44 @@
     return messages;
   }
 
+  async function sendViaProxy({ provider, model, messages }) {
+    const headers = {
+      "Content-Type": "application/json"
+    };
+
+    if (GATEWAY.token) {
+      headers["X-Proxy-Token"] = GATEWAY.token;
+    }
+
+    return fetch(GATEWAY.endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        provider,
+        model,
+        messages,
+        temperature: 0.7,
+        top_p: 1,
+        max_tokens: 1024,
+        stream: false
+      })
+    });
+  }
+
   async function sendMessage() {
     if (sending) return;
 
     const provider = state.provider;
-    const config = PROVIDERS[provider];
     const model = String(nodes.model.value || "").trim();
     const input = nodes.input.value.trim();
 
-    if (!input) {
-      setStatus("请输入问题", "warn");
+    if (!GATEWAY.endpoint) {
+      setStatus("请先配置 Cloudflare 代理地址", "error");
       return;
     }
 
-    if (!config.apiKey) {
-      setStatus("缺少 API Key，请先在组件文件中配置", "error");
+    if (!input) {
+      setStatus("请输入问题", "warn");
       return;
     }
 
@@ -236,20 +272,10 @@
     setStatus(`正在请求 ${provider} / ${model} ...`, "loading");
 
     try {
-      const response = await fetch(config.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.apiKey}`
-        },
-        body: JSON.stringify({
-          model,
-          messages: buildMessages(),
-          temperature: 0.7,
-          top_p: 1,
-          max_tokens: 1024,
-          stream: false
-        })
+      const response = await sendViaProxy({
+        provider,
+        model,
+        messages: buildMessages()
       });
 
       const text = await response.text();
@@ -282,7 +308,7 @@
     } catch (error) {
       const msg = error instanceof Error ? error.message : "未知错误";
       pushMessage("assistant", `请求失败：${msg}`);
-      setStatus("失败，请检查 Key、模型名、额度或 CORS", "error");
+      setStatus("失败，请检查代理地址、模型名、额度或 CORS", "error");
     } finally {
       sending = false;
       nodes.send.disabled = false;
@@ -619,6 +645,3 @@
   }
 }
 </style>
-
-
-

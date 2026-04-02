@@ -1,8 +1,6 @@
 ﻿# Personal Blog (Astro)
 
-## Static Deploy Mode
-
-This project is pure static output.
+## 快速开始
 
 ```bash
 npm install
@@ -10,74 +8,68 @@ npm run dev
 npm run build
 ```
 
-## Home Chat Box (Simple UI)
+## 首页聊天框（Cloudflare 统一后端）
 
-Only the home page (`/`) shows the chat box.
-The UI keeps only:
+当前首页聊天框只负责前端 UI，不再在前端保存任何模型 API Key。
 
-- provider switch
-- model switch
-- message input + send
+支持平台：
 
-No advanced parameters are exposed.
+- DeepSeek
+- 千问 Qwen
+- 智谱 GLM
+- 豆包 Doubao
 
-Official endpoints used:
+前端配置位置：
 
-- DeepSeek: `https://api.deepseek.com/v1/chat/completions`
-- Qwen (DashScope): `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions`
-- Doubao (Ark): `https://ark.cn-beijing.volces.com/api/v3/chat/completions`
+- `src/site.config.ts`
+  - `chatProxy.endpoint`：你的 Worker 地址（例如 `https://xxx.workers.dev/v1/chat`）
+  - `chatProxy.token`：可选，对应 Worker 的 `PROXY_TOKEN`
 
-Set your keys in:
+Worker 模板在：
 
-- `src/components/ChatSidebar.astro`
+- `cloudflare/chat-proxy/worker.js`
+- `cloudflare/chat-proxy/wrangler.toml.example`
+- `cloudflare/chat-proxy/README.md`
 
-Fields to fill:
+### Cloudflare 最短部署步骤
 
-- `PROVIDERS.deepseek.apiKey`
-- `PROVIDERS.qwen.apiKey`
-- `PROVIDERS.doubao.apiKey`
+1. Cloudflare -> Workers & Pages -> Create Worker。
+2. 复制 `cloudflare/chat-proxy/worker.js` 到 Worker 编辑器。
+3. 在 Worker Settings -> Variables and Secrets 添加：
+   - Secrets：`DEEPSEEK_API_KEY`、`QWEN_API_KEY`、`ZHIPU_API_KEY`、`DOUBAO_API_KEY`
+   - 可选 Secret：`PROXY_TOKEN`
+   - Variable：`ALLOWED_ORIGINS`（例如 `https://openclawcoin.github.io`）
+4. Deploy，得到 `https://xxx.workers.dev/v1/chat`。
+5. 把这个地址填进 `src/site.config.ts` 的 `chatProxy.endpoint`。
+6. 重新发布博客。
 
-Important:
+## 前端写作台（`/write/`）
 
-- In static frontend mode, keys are visible to users.
-- Free quota / free model availability depends on provider policy and may change.
-- Some providers may restrict browser direct calls by CORS/security policy.
+打开 `/write/` 后可直接发布 Markdown 到 GitHub 仓库。
 
-## Frontend Writer (`/write/`)
+必填项：
 
-You can open `/write/` and publish a Markdown post directly to GitHub from browser.
-
-Required inputs on page:
-
-- GitHub token (recommended fine-grained token)
+- GitHub Token（建议 Fine-grained Token）
 - repo owner
 - repo name
 - branch
 
-Write target:
+写入目标：
 
 - `src/content/blog/YYYY-MM-DD-title.md`
 
-After publish:
-
-- a commit is created in your repo
-- your static host rebuilds and the post goes live
-
-Token permission (minimum):
+Token 最小权限：
 
 - Repository `Contents: Read and write`
 
-## Deploy to GitHub Pages (Simple Steps)
+## 部署到 GitHub Pages
 
-1. Create a repository on GitHub.
-2. Upload this project to branch `main`.
-3. In GitHub repo settings:
-   - `Settings` -> `Pages` -> `Build and deployment`
-   - Source: `GitHub Actions`
-4. Push to `main` branch. Workflow `.github/workflows/deploy-pages.yml` will build and deploy automatically.
-5. Wait for workflow success, then open your Pages URL.
+1. 在 GitHub 创建仓库。
+2. 把项目推送到 `main` 分支。
+3. 仓库 `Settings` -> `Pages` -> `Build and deployment` -> Source 选择 `GitHub Actions`。
+4. 每次 push 到 `main`，`.github/workflows/deploy-pages.yml` 会自动构建发布。
 
-Notes:
+说明：
 
-- If repo name is `yourname.github.io`, site URL is `https://yourname.github.io/`
-- If repo name is normal project (for example `personal-blog`), site URL is `https://yourname.github.io/personal-blog/`
+- 仓库名是 `yourname.github.io`：站点 URL 为 `https://yourname.github.io/`
+- 普通仓库名（如 `personal-blog`）：站点 URL 为 `https://yourname.github.io/personal-blog/`

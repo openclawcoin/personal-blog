@@ -1,0 +1,15 @@
+﻿name = "shrimp-chat-proxy"
+main = "worker.js"
+compatibility_date = "2026-04-02"
+workers_dev = true
+
+[vars]
+# 允许访问此代理的站点来源（逗号分隔），例如：
+# "https://openclawcoin.github.io,https://blog.yourdomain.com"
+ALLOWED_ORIGINS = "https://openclawcoin.github.io"
+
+# 可按需覆盖默认 API 地址
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+QWEN_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
+DOUBAO_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
