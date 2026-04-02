@@ -1,9 +1,10 @@
----
+﻿---
 export const prerender = true;
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { formatDate } from "../../utils/formatDate";
 import { siteConfig } from "../../site.config";
+import { withBase } from "../../utils/withBase";
 
 export async function getStaticPaths() {
   const posts = await getCollection("blog", ({ data }) => !data.draft);
@@ -26,7 +27,7 @@ const pageTitle = `${post.data.title} | ${siteConfig.title}`;
       <p>{post.data.description}</p>
       <div class="tag-row">
         {post.data.tags.map((tag) => (
-          <a class="tag" href={`/tags/${tag.toLowerCase()}/`}>
+          <a class="tag" href={withBase(`/tags/${tag.toLowerCase()}/`)}>
             #{tag}
           </a>
         ))}

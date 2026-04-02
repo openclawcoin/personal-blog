@@ -15,6 +15,7 @@ for (const post of posts) {
 }
 
 const postIndexJson = JSON.stringify(postMap);
+const blogPathPrefix = `${(import.meta.env.BASE_URL || "/").replace(/\/$/, "")}/blog/`;
 ---
 
 <section class="home-left-sidebar">
@@ -96,6 +97,8 @@ const postIndexJson = JSON.stringify(postMap);
 
   if (!titleNode || !gridNode || !prevBtn || !nextBtn || !indexNode) return;
 
+  const blogPrefix = {JSON.stringify(blogPathPrefix)};
+
   let postIndex = {};
   try {
     postIndex = JSON.parse(indexNode.textContent || "{}");
@@ -137,7 +140,7 @@ const postIndexJson = JSON.stringify(postMap);
       let node;
       if (post && post.slug) {
         node = document.createElement("a");
-        node.href = `/blog/${post.slug}/`;
+        node.href = `${blogPrefix}${post.slug}/`;
         node.title = post.title || "查看文章";
         node.className = "calendar-cell has-post";
       } else {

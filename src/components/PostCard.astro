@@ -1,6 +1,7 @@
----
+﻿---
 import type { CollectionEntry } from "astro:content";
 import { formatDate } from "../utils/formatDate";
+import { withBase } from "../utils/withBase";
 
 const { post } = Astro.props as { post: CollectionEntry<"blog"> };
 ---
@@ -8,12 +9,12 @@ const { post } = Astro.props as { post: CollectionEntry<"blog"> };
 <article class="post-card">
   <p class="post-meta">{formatDate(post.data.pubDate)}</p>
   <h3>
-    <a href={`/blog/${post.slug}/`}>{post.data.title}</a>
+    <a href={withBase(`/blog/${post.slug}/`)}>{post.data.title}</a>
   </h3>
   <p>{post.data.description}</p>
   <div class="tag-row">
     {post.data.tags.map((tag) => (
-      <a class="tag" href={`/tags/${tag.toLowerCase()}/`}>
+      <a class="tag" href={withBase(`/tags/${tag.toLowerCase()}/`)}>
         #{tag}
       </a>
     ))}
