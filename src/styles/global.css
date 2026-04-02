@@ -611,22 +611,27 @@ body {
   pointer-events: none;
 }
 
-.calendar-cell.today {
-  background: #e9cda0;
-  border-color: #c89f64;
-  color: #4f3624;
-  font-weight: 700;
-}
-
 .calendar-cell.has-post {
-  border-color: #d8c49f;
-  background: #fff;
-  color: #2b2e2f;
+  border-color: transparent;
+  background: transparent;
+  color: inherit;
 }
 
 .calendar-cell.has-post:hover {
-  border-color: #bc6d52;
+  border-color: transparent;
+  background: transparent;
   color: #8b3f2b;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.calendar-cell.today,
+.calendar-cell.today.has-post {
+  background: #e0bf8e;
+  border-color: #be9053;
+  color: #4f3624;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .calendar-note {
@@ -687,5 +692,6 @@ body {
     margin-top: 0.2rem;
   }
 }
+
 
 
