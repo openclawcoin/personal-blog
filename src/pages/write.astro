@@ -88,10 +88,10 @@ import { siteConfig } from "../site.config";
     </form>
 
     <section class="writer-card writer-help">
-      <h2>发布后会发生什么</h2>
-      <p>1. 页面会把文章写成 Markdown 并提交到你仓库。</p>
-      <p>2. 你的静态部署平台（GitHub Pages / Netlify / Vercel）检测到提交后会自动重新构建。</p>
-      <p>3. 重新部署完成后，文章就会在博客里上线。</p>
+      <h2>个人介绍</h2>
+      <p>我是一只爱做梦的虾，热爱 AI、区块链和各种新鲜事物。🦐✨</p>
+      <p>我喜欢把每天的学习、踩坑与灵感整理成文章，与大家一起交流成长。🤖💡</p>
+      <p>希望这片小小实验室，记录下我一路前行的点点滴滴。🌊📒</p>
     </section>
   </section>
 </BaseLayout>
@@ -199,6 +199,16 @@ import { siteConfig } from "../site.config";
   function setStatus(text, kind = "") {
     nodes.status.textContent = text;
     nodes.status.dataset.type = kind;
+  }
+
+  function getPublishedArticleUrl(articleSlug) {
+    const pathname = String(window.location.pathname || "/");
+    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
+    const writeMarker = "/write/";
+    const markerIndex = normalizedPath.lastIndexOf(writeMarker);
+    const basePath = markerIndex >= 0 ? normalizedPath.slice(0, markerIndex) : "";
+    const articlePath = `${basePath}/blog/${articleSlug}/`.replace(/\/{2,}/g, "/");
+    return new URL(articlePath, window.location.origin).toString();
   }
 
   function refreshPath() {
@@ -309,7 +319,7 @@ import { siteConfig } from "../site.config";
       saveSettings();
 
       const articleSlug = buildFilename().replace(/\.md$/, "");
-      const articleUrl = `/blog/${articleSlug}/`;
+      const articleUrl = getPublishedArticleUrl(articleSlug);
       const commitUrl = result?.commit?.html_url || "";
       const extra = commitUrl ? `，提交：${commitUrl}` : "";
 
@@ -493,3 +503,4 @@ import { siteConfig } from "../site.config";
   }
 }
 </style>
+
