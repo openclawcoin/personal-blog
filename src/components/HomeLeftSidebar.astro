@@ -66,7 +66,7 @@ const blogPathPrefix = `${(import.meta.env.BASE_URL || "/").replace(/\/$/, "")}/
     </div>
   </article>
 
-  <article class="left-card calendar-card" data-left-calendar>
+  <article class="left-card calendar-card" data-left-calendar data-post-index={postIndexJson} data-blog-prefix={blogPathPrefix}>
     <div class="calendar-head">
       <button type="button" aria-label="上一月" data-cal-prev>‹</button>
       <strong data-cal-title></strong>
@@ -80,7 +80,7 @@ const blogPathPrefix = `${(import.meta.env.BASE_URL || "/").replace(/\/$/, "")}/
     <div class="calendar-grid" data-cal-grid></div>
 
     <p class="calendar-note">有文章的日期可点击直达当天博客</p>
-    <script type="application/json" data-post-index>{postIndexJson}</script>
+
   </article>
 </section>
 
@@ -89,19 +89,18 @@ const blogPathPrefix = `${(import.meta.env.BASE_URL || "/").replace(/\/$/, "")}/
   const root = document.querySelector("[data-left-calendar]");
   if (!root) return;
 
-  const indexNode = root.querySelector("[data-post-index]");
   const titleNode = root.querySelector("[data-cal-title]");
   const gridNode = root.querySelector("[data-cal-grid]");
   const prevBtn = root.querySelector("[data-cal-prev]");
   const nextBtn = root.querySelector("[data-cal-next]");
 
-  if (!titleNode || !gridNode || !prevBtn || !nextBtn || !indexNode) return;
+  if (!titleNode || !gridNode || !prevBtn || !nextBtn) return;
 
-  const blogPrefix = {JSON.stringify(blogPathPrefix)};
+  const blogPrefix = String(root.dataset.blogPrefix || "/blog/");
 
   let postIndex = {};
   try {
-    postIndex = JSON.parse(indexNode.textContent || "{}");
+    postIndex = JSON.parse(String(root.dataset.postIndex || "{}"));
   } catch {
     postIndex = {};
   }
@@ -170,4 +169,5 @@ const blogPathPrefix = `${(import.meta.env.BASE_URL || "/").replace(/\/$/, "")}/
   render();
 })();
 </script>
+
 
