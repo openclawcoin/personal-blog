@@ -670,16 +670,17 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .home-left-sidebar .calendar-card {
+    display: none;
+  }
 
+  .home-center-column .hero {
+    display: none;
+  }
 
-
-
-
-
-
-
-
-
-
-
+  .home-center-column .section-head {
+    margin-top: 0.2rem;
+  }
+}
 
