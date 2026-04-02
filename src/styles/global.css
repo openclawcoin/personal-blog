@@ -586,6 +586,10 @@ body {
   gap: 0.28rem;
 }
 
+.calendar-grid {
+  grid-template-rows: repeat(6, 30px);
+}
+
 .calendar-week span {
   text-align: center;
   color: #7b755f;
@@ -608,8 +612,8 @@ body {
 }
 
 .calendar-cell.today {
-  background: #f2ddbc;
-  border-color: #d7b788;
+  background: #e9cda0;
+  border-color: #c89f64;
   color: #4f3624;
   font-weight: 700;
 }
@@ -683,4 +687,5 @@ body {
     margin-top: 0.2rem;
   }
 }
+
 

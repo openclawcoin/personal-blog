@@ -1,0 +1,51 @@
+﻿---
+import { getCollection, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import PostCard from "../../../components/PostCard.astro";
+import { withBase } from "../../../utils/withBase";
+
+type DatePageProps = {
+  date: string;
+  posts: CollectionEntry<"blog">[];
+};
+
+export async function getStaticPaths() {
+  const allPosts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+    (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+  );
+
+  const grouped = new Map<string, CollectionEntry<"blog">[]>();
+  for (const post of allPosts) {
+    const key = post.data.pubDate.toISOString().slice(0, 10);
+    const list = grouped.get(key) || [];
+    list.push(post);
+    grouped.set(key, list);
+  }
+
+  return Array.from(grouped.entries()).map(([date, posts]) => ({
+    params: { date },
+    props: { date, posts }
+  }));
+}
+
+const { date, posts } = Astro.props as DatePageProps;
+const title = `${date} 的发布记录`;
+const description = `这一天共发布 ${posts.length} 篇文章。`;
+---
+
+<BaseLayout title={title} description={description}>
+  <section class="section-head section-head-spacious">
+    <h1>{date} 的文章</h1>
+    <p>共 {posts.length} 篇</p>
+  </section>
+
+  <div class="link-row">
+    <a class="button button-ghost" href={withBase("/blog/")}>返回博客列表</a>
+  </div>
+
+  <section class="posts-grid">
+    {posts.map((post) => (
+      <PostCard post={post} />
+    ))}
+  </section>
+</BaseLayout>
