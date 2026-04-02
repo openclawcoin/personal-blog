@@ -521,7 +521,9 @@
     left: 0.56rem;
     width: auto;
     bottom: 0.56rem;
+    height: 25vh;
     height: 25dvh;
+    min-height: 25dvh;
     max-height: 25dvh;
   }
 
@@ -531,24 +533,92 @@
     grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   }
 
+  .chat-head {
+    padding: 0.5rem 0.58rem;
+  }
+
+  .chat-head small,
+  .chat-tip,
+  .chat-status {
+    display: none;
+  }
+
+  .chat-messages {
+    padding: 0.5rem 0.58rem;
+  }
+
+  .chat-form {
+    padding: 0.45rem 0.58rem;
+    grid-template-columns: 1fr auto;
+    gap: 0.34rem;
+  }
+
+  .chat-form textarea {
+    min-height: 38px;
+    max-height: 62px;
+    padding: 0.36rem 0.45rem;
+    font-size: 0.76rem;
+  }
+
+  .chat-form button {
+    width: auto;
+    height: 34px;
+    padding: 0 0.58rem;
+    font-size: 0.74rem;
+  }
+
+  .chat-controls {
+    padding: 0.45rem 0.58rem;
+  }
+
   .control-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.34rem;
+    align-items: center;
+  }
+
+  .control-grid label {
+    gap: 0;
+    font-size: 0;
+  }
+
+  .control-grid select {
+    height: 34px;
+    padding: 0 0.34rem;
+    font-size: 0.75rem;
   }
 
   .control-grid button {
-    width: 100%;
+    grid-column: auto;
+    width: auto;
+    height: 34px;
+    border-radius: 10px;
+    padding: 0 0.58rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 560px) {
-  .chat-form {
-    grid-template-columns: 1fr;
+  .chat-head h3 {
+    font-size: 0.84rem;
   }
 
-  .chat-form button {
-    width: 100%;
+  .chat-messages {
+    padding: 0.45rem 0.5rem;
+  }
+
+  .chat-form,
+  .chat-controls {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .control-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
   }
 }
 </style>
+
 
 
