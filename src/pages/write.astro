@@ -1,0 +1,495 @@
+﻿---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteConfig } from "../site.config";
+---
+
+<BaseLayout title={`写作台 | ${siteConfig.title}`} description="在前端直接写作并发布到 GitHub 仓库。">
+  <section class="writer-page">
+    <div class="writer-head">
+      <h1>前端写作台</h1>
+      <p>在这里写完后可直接提交到 GitHub 仓库的 `src/content/blog/`，触发静态站自动更新。</p>
+    </div>
+
+    <form class="writer-form" data-writer-form>
+      <section class="writer-card">
+        <h2>仓库配置</h2>
+
+        <label>
+          GitHub Token（建议使用 Fine-grained Token）
+          <input data-token type="password" placeholder="ghp_xxx / github_pat_xxx" autocomplete="off" required />
+        </label>
+
+        <div class="writer-grid">
+          <label>
+            Owner
+            <input data-owner type="text" placeholder="your-github-name" required />
+          </label>
+
+          <label>
+            Repo
+            <input data-repo type="text" placeholder="personal-blog" required />
+          </label>
+
+          <label>
+            Branch
+            <input data-branch type="text" value="main" required />
+          </label>
+        </div>
+
+        <label class="check-row">
+          <input data-save-token type="checkbox" />
+          记住 Token（仅保存在当前浏览器）
+        </label>
+      </section>
+
+      <section class="writer-card">
+        <h2>文章内容</h2>
+
+        <label>
+          标题
+          <input data-title type="text" placeholder="比如：今天学会了什么" required />
+        </label>
+
+        <label>
+          简介
+          <input data-description type="text" placeholder="一句话概括这篇文章" required />
+        </label>
+
+        <div class="writer-grid">
+          <label>
+            发布日期
+            <input data-date type="date" required />
+          </label>
+
+          <label>
+            标签（逗号分隔）
+            <input data-tags type="text" placeholder="daily, notes" />
+          </label>
+
+          <label class="check-row">
+            <input data-draft type="checkbox" />
+            设为草稿（draft: true）
+          </label>
+        </div>
+
+        <label>
+          正文（Markdown）
+          <textarea data-body rows="16" placeholder="在这里写正文。支持图片/音频/视频 HTML 代码。" required></textarea>
+        </label>
+
+        <div class="action-row">
+          <button type="button" class="ghost" data-preview-file>预览文件名</button>
+          <button type="submit" class="primary">发布到 GitHub</button>
+        </div>
+
+        <p class="writer-path" data-file-path>将生成：`src/content/blog/日期-标题.md`</p>
+        <p class="writer-status" data-status>就绪</p>
+      </section>
+    </form>
+
+    <section class="writer-card writer-help">
+      <h2>发布后会发生什么</h2>
+      <p>1. 页面会把文章写成 Markdown 并提交到你仓库。</p>
+      <p>2. 你的静态部署平台（GitHub Pages / Netlify / Vercel）检测到提交后会自动重新构建。</p>
+      <p>3. 重新部署完成后，文章就会在博客里上线。</p>
+    </section>
+  </section>
+</BaseLayout>
+
+<script is:inline>
+(() => {
+  const STORAGE = "shrimp.writer.settings.v1";
+
+  const form = document.querySelector("[data-writer-form]");
+  if (!form) return;
+
+  const nodes = {
+    token: form.querySelector("[data-token]"),
+    owner: form.querySelector("[data-owner]"),
+    repo: form.querySelector("[data-repo]"),
+    branch: form.querySelector("[data-branch]"),
+    saveToken: form.querySelector("[data-save-token]"),
+    title: form.querySelector("[data-title]"),
+    description: form.querySelector("[data-description]"),
+    date: form.querySelector("[data-date]"),
+    tags: form.querySelector("[data-tags]"),
+    draft: form.querySelector("[data-draft]"),
+    body: form.querySelector("[data-body]"),
+    previewFile: form.querySelector("[data-preview-file]"),
+    filePath: form.querySelector("[data-file-path]"),
+    status: form.querySelector("[data-status]")
+  };
+
+  const requiredNodes = Object.values(nodes);
+  if (requiredNodes.some((node) => !node)) return;
+
+  let publishing = false;
+
+  function todayText() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function slugify(text) {
+    return String(text || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s/]+/g, "-")
+      .replace(/[^\w\u4e00-\u9fa5-]+/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+  }
+
+  function normalizeTags(raw) {
+    return String(raw || "")
+      .split(/[,，\s\n]+/)
+      .map((v) => v.trim())
+      .filter(Boolean);
+  }
+
+  function safeTitle(value) {
+    return String(value || "").replace(/"/g, '\\"').trim();
+  }
+
+  function toBase64Unicode(str) {
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    for (const b of bytes) binary += String.fromCharCode(b);
+    return btoa(binary);
+  }
+
+  function buildFilename() {
+    const date = nodes.date.value || todayText();
+    const slug = slugify(nodes.title.value) || `post-${Date.now()}`;
+    return `${date}-${slug}.md`;
+  }
+
+  function buildFilePath() {
+    return `src/content/blog/${buildFilename()}`;
+  }
+
+  function buildFrontmatter() {
+    const title = safeTitle(nodes.title.value);
+    const description = safeTitle(nodes.description.value);
+    const date = nodes.date.value || todayText();
+    const tags = normalizeTags(nodes.tags.value);
+    const draft = Boolean(nodes.draft.checked);
+
+    const tagsYaml = tags.length
+      ? tags.map((tag) => `  - ${tag}`).join("\n")
+      : "  - notes";
+
+    return [
+      "---",
+      `title: \"${title}\"`,
+      `description: \"${description}\"`,
+      `pubDate: ${date}`,
+      "tags:",
+      tagsYaml,
+      `draft: ${draft ? "true" : "false"}`,
+      "---",
+      ""
+    ].join("\n");
+  }
+
+  function buildMarkdown() {
+    const body = String(nodes.body.value || "").trim();
+    return `${buildFrontmatter()}\n${body}\n`;
+  }
+
+  function setStatus(text, kind = "") {
+    nodes.status.textContent = text;
+    nodes.status.dataset.type = kind;
+  }
+
+  function refreshPath() {
+    nodes.filePath.textContent = `将生成：${buildFilePath()}`;
+  }
+
+  function saveSettings() {
+    const payload = {
+      owner: nodes.owner.value.trim(),
+      repo: nodes.repo.value.trim(),
+      branch: nodes.branch.value.trim() || "main",
+      saveToken: Boolean(nodes.saveToken.checked),
+      token: nodes.saveToken.checked ? nodes.token.value.trim() : ""
+    };
+    localStorage.setItem(STORAGE, JSON.stringify(payload));
+  }
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(STORAGE);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+
+      if (typeof parsed.owner === "string") nodes.owner.value = parsed.owner;
+      if (typeof parsed.repo === "string") nodes.repo.value = parsed.repo;
+      if (typeof parsed.branch === "string" && parsed.branch) nodes.branch.value = parsed.branch;
+      if (typeof parsed.saveToken === "boolean") nodes.saveToken.checked = parsed.saveToken;
+      if (parsed.saveToken && typeof parsed.token === "string") nodes.token.value = parsed.token;
+    } catch {
+      // ignore
+    }
+  }
+
+  async function fetchFileSha({ owner, repo, branch, path, headers }) {
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
+    const resp = await fetch(url, { headers });
+
+    if (resp.status === 404) return "";
+
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const message = data?.message || `获取文件信息失败（HTTP ${resp.status}）`;
+      throw new Error(message);
+    }
+
+    return typeof data.sha === "string" ? data.sha : "";
+  }
+
+  async function publish() {
+    if (publishing) return;
+
+    const token = nodes.token.value.trim();
+    const owner = nodes.owner.value.trim();
+    const repo = nodes.repo.value.trim();
+    const branch = nodes.branch.value.trim() || "main";
+
+    if (!token || !owner || !repo) {
+      setStatus("请先填写 Token、Owner、Repo。", "warn");
+      return;
+    }
+
+    if (!nodes.title.value.trim() || !nodes.description.value.trim() || !nodes.body.value.trim()) {
+      setStatus("标题、简介、正文都需要填写。", "warn");
+      return;
+    }
+
+    publishing = true;
+    setStatus("正在发布到 GitHub...", "loading");
+
+    try {
+      const path = buildFilePath();
+      const markdown = buildMarkdown();
+      const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+
+      const headers = {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28"
+      };
+
+      const sha = await fetchFileSha({ owner, repo, branch, path, headers });
+
+      const payload = {
+        message: `${sha ? "update" : "create"}: ${nodes.title.value.trim()}`,
+        content: toBase64Unicode(markdown),
+        branch
+      };
+
+      if (sha) payload.sha = sha;
+
+      const putUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
+      const putResp = await fetch(putUrl, {
+        method: "PUT",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await putResp.json().catch(() => ({}));
+      if (!putResp.ok) {
+        const message = result?.message || `发布失败（HTTP ${putResp.status}）`;
+        throw new Error(message);
+      }
+
+      saveSettings();
+
+      const articleSlug = buildFilename().replace(/\.md$/, "");
+      const articleUrl = `/blog/${articleSlug}/`;
+      const commitUrl = result?.commit?.html_url || "";
+      const extra = commitUrl ? `，提交：${commitUrl}` : "";
+
+      setStatus(`发布成功，预计部署完成后可访问：${articleUrl}${extra}`, "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "未知错误";
+      setStatus(`发布失败：${message}`, "error");
+    } finally {
+      publishing = false;
+    }
+  }
+
+  nodes.date.value = todayText();
+  loadSettings();
+  refreshPath();
+
+  nodes.title.addEventListener("input", refreshPath);
+  nodes.date.addEventListener("input", refreshPath);
+  nodes.owner.addEventListener("input", saveSettings);
+  nodes.repo.addEventListener("input", saveSettings);
+  nodes.branch.addEventListener("input", saveSettings);
+  nodes.saveToken.addEventListener("change", saveSettings);
+  nodes.token.addEventListener("input", () => {
+    if (nodes.saveToken.checked) saveSettings();
+  });
+
+  nodes.previewFile.addEventListener("click", () => {
+    refreshPath();
+    setStatus("文件名预览已更新。", "ok");
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await publish();
+  });
+})();
+</script>
+
+<style>
+.writer-page {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.writer-head {
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.78), rgba(240, 227, 193, 0.64));
+  padding: 1rem 1.1rem;
+}
+
+.writer-head h1 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.writer-head p {
+  margin: 0.45rem 0 0;
+  color: var(--ink-soft);
+}
+
+.writer-form {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.writer-card {
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 4px);
+  background: var(--card);
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.72rem;
+}
+
+.writer-card h2 {
+  margin: 0;
+  font-size: 1.06rem;
+}
+
+.writer-card label {
+  display: grid;
+  gap: 0.28rem;
+  font-size: 0.9rem;
+}
+
+.writer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.writer-card input[type="text"],
+.writer-card input[type="password"],
+.writer-card input[type="date"],
+.writer-card textarea {
+  border: 1px solid #d4c5a5;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2a2a;
+  padding: 0.5rem 0.58rem;
+  font-size: 0.92rem;
+}
+
+.writer-card textarea {
+  resize: vertical;
+  min-height: 280px;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.52rem;
+}
+
+.action-row button {
+  border-radius: 10px;
+  padding: 0.52rem 0.82rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.action-row .primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.action-row .primary:hover {
+  background: #a93f29;
+}
+
+.action-row .ghost {
+  border: 1px solid #d4c5a5;
+  background: #fff;
+  color: #2f342f;
+}
+
+.writer-path,
+.writer-status {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.writer-path {
+  color: #6f614c;
+}
+
+.writer-status {
+  color: #605948;
+}
+
+.writer-status[data-type="ok"] {
+  color: #2f6d36;
+}
+
+.writer-status[data-type="warn"] {
+  color: #8b4d10;
+}
+
+.writer-status[data-type="error"] {
+  color: #9c2f2f;
+}
+
+.writer-help p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 960px) {
+  .writer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -1,0 +1,40 @@
+---
+export const prerender = true;
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatDate } from "../../utils/formatDate";
+import { siteConfig } from "../../site.config";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog", ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post }
+  }));
+}
+
+const { post } = Astro.props as { post: CollectionEntry<"blog"> };
+const { Content } = await render(post);
+const pageTitle = `${post.data.title} | ${siteConfig.title}`;
+---
+
+<BaseLayout title={pageTitle} description={post.data.description}>
+  <article class="post-article">
+    <header class="article-head">
+      <p class="post-meta">{formatDate(post.data.pubDate)}</p>
+      <h1>{post.data.title}</h1>
+      <p>{post.data.description}</p>
+      <div class="tag-row">
+        {post.data.tags.map((tag) => (
+          <a class="tag" href={`/tags/${tag.toLowerCase()}/`}>
+            #{tag}
+          </a>
+        ))}
+      </div>
+    </header>
+
+    <div class="post-content">
+      <Content />
+    </div>
+  </article>
+</BaseLayout>

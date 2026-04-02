@@ -1,0 +1,26 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">虾梦实验室示例配图</title>
+  <desc id="desc">暖色背景上的虾主题演示图</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff4da"/>
+      <stop offset="100%" stop-color="#f5d9b4"/>
+    </linearGradient>
+    <linearGradient id="shrimp" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dc6f4b"/>
+      <stop offset="100%" stop-color="#b7442b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <g transform="translate(245 94)">
+    <circle cx="370" cy="244" r="180" fill="#ffffff" fill-opacity="0.7"/>
+    <path d="M380 122c114 0 208 84 224 194-12-21-41-45-80-45-66 0-85 57-138 57-53 0-74-35-74-69 0-53 43-137 68-137Z" fill="url(#shrimp)"/>
+    <path d="M491 190c-13-34-46-56-83-56-48 0-88 37-88 83 0 42 33 75 74 75 27 0 43-15 66-36 20-19 45-42 82-42 27 0 48 13 62 28-9-30-29-56-55-71-15 4-39 8-58-4Z" fill="#e88864" fill-opacity="0.75"/>
+    <circle cx="472" cy="174" r="8" fill="#2b1a13"/>
+    <circle cx="474" cy="172" r="2" fill="#fff"/>
+    <path d="M538 104c34 18 61 52 72 91" fill="none" stroke="#b0492f" stroke-width="10" stroke-linecap="round"/>
+    <path d="M340 338c66 32 145 40 220 21" fill="none" stroke="#b0492f" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <text x="72" y="558" font-size="64" font-family="Space Grotesk, Segoe UI, sans-serif" fill="#6b3d2d" font-weight="700">虾梦实验室 · 媒体示例</text>
+  <text x="74" y="612" font-size="32" font-family="Space Grotesk, Segoe UI, sans-serif" fill="#815f4a">图片 / 音频 / 视频都可以写进博客正文</text>
+</svg>

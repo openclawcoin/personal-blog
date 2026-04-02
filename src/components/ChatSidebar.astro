@@ -1,0 +1,547 @@
+﻿---
+---
+
+<aside class="chat-widget" data-chat-widget>
+  <section class="chat-panel">
+    <header class="chat-head">
+      <h3>国产模型聊天</h3>
+      <small>首页快捷对话</small>
+    </header>
+
+    <div class="chat-messages" data-messages></div>
+
+    <form class="chat-form" data-form>
+      <textarea data-input rows="3" placeholder="输入问题，回车发送（Shift+Enter 换行）" required></textarea>
+      <button data-send type="submit">发送</button>
+    </form>
+
+    <section class="chat-controls">
+      <div class="control-grid">
+        <label>
+          平台
+          <select data-provider>
+            <option value="deepseek">DeepSeek</option>
+            <option value="qwen">千问 Qwen</option>
+            <option value="doubao">豆包 Doubao</option>
+          </select>
+        </label>
+
+        <label>
+          模型
+          <select data-model></select>
+        </label>
+
+        <button type="button" data-clear>新对话</button>
+      </div>
+
+      <p class="chat-tip" data-tip>
+        若提示缺少 API Key，请在本文件中的 PROVIDERS 里填写。
+      </p>
+    </section>
+
+    <p class="chat-status" data-status>就绪</p>
+  </section>
+</aside>
+
+<script is:inline>
+(() => {
+  const root = document.querySelector("[data-chat-widget]");
+  if (!root) return;
+
+  // Fill your official API keys here.
+  const PROVIDERS = {
+    deepseek: {
+      endpoint: "https://api.deepseek.com/v1/chat/completions",
+      models: ["deepseek-chat", "deepseek-reasoner"],
+      apiKey: ""
+    },
+    qwen: {
+      endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+      models: ["qwen-turbo", "qwen-plus", "qwen-max"],
+      apiKey: ""
+    },
+    doubao: {
+      endpoint: "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+      models: ["doubao-1-5-pro-32k-250115", "ep-xxxx"],
+      apiKey: ""
+    }
+  };
+
+  const STORAGE = "shrimp.static.chat.simple.v3";
+
+  const nodes = {
+    provider: root.querySelector("[data-provider]"),
+    model: root.querySelector("[data-model]"),
+    messages: root.querySelector("[data-messages]"),
+    clear: root.querySelector("[data-clear]"),
+    form: root.querySelector("[data-form]"),
+    input: root.querySelector("[data-input]"),
+    send: root.querySelector("[data-send]"),
+    status: root.querySelector("[data-status]"),
+    tip: root.querySelector("[data-tip]")
+  };
+
+  const state = {
+    provider: "deepseek",
+    modelByProvider: {
+      deepseek: "deepseek-chat",
+      qwen: "qwen-turbo",
+      doubao: "doubao-1-5-pro-32k-250115"
+    },
+    messagesByProvider: {
+      deepseek: [],
+      qwen: [],
+      doubao: []
+    }
+  };
+
+  let sending = false;
+
+  function save() {
+    localStorage.setItem(STORAGE, JSON.stringify(state));
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (typeof parsed.provider === "string") state.provider = parsed.provider;
+      if (parsed.modelByProvider && typeof parsed.modelByProvider === "object") {
+        state.modelByProvider = { ...state.modelByProvider, ...parsed.modelByProvider };
+      }
+      if (parsed.messagesByProvider && typeof parsed.messagesByProvider === "object") {
+        state.messagesByProvider = {
+          deepseek: Array.isArray(parsed.messagesByProvider.deepseek) ? parsed.messagesByProvider.deepseek : [],
+          qwen: Array.isArray(parsed.messagesByProvider.qwen) ? parsed.messagesByProvider.qwen : [],
+          doubao: Array.isArray(parsed.messagesByProvider.doubao) ? parsed.messagesByProvider.doubao : []
+        };
+      }
+    } catch {
+      // ignore invalid local state
+    }
+  }
+
+  function setStatus(text, kind = "") {
+    nodes.status.textContent = text;
+    nodes.status.dataset.type = kind;
+  }
+
+  function activeMessages() {
+    return state.messagesByProvider[state.provider] || [];
+  }
+
+  function renderModels() {
+    const provider = state.provider;
+    const config = PROVIDERS[provider];
+    const selected = state.modelByProvider[provider] || config.models[0];
+
+    nodes.model.innerHTML = "";
+    for (const m of config.models) {
+      const option = document.createElement("option");
+      option.value = m;
+      option.textContent = m;
+      nodes.model.append(option);
+    }
+
+    if (!config.models.includes(selected)) {
+      const custom = document.createElement("option");
+      custom.value = selected;
+      custom.textContent = selected;
+      nodes.model.append(custom);
+    }
+
+    nodes.model.value = selected;
+
+    nodes.tip.textContent = config.apiKey
+      ? "当前平台 API Key 已配置，可以直接聊天。"
+      : "当前平台未配置 API Key，请先编辑 src/components/ChatSidebar.astro。";
+  }
+
+  function renderMessages() {
+    const list = activeMessages();
+    nodes.messages.innerHTML = "";
+
+    if (!list.length) {
+      const empty = document.createElement("p");
+      empty.className = "chat-empty";
+      empty.textContent = "开始一段新对话吧。";
+      nodes.messages.append(empty);
+      return;
+    }
+
+    for (const item of list) {
+      const bubble = document.createElement("article");
+      bubble.className = `chat-bubble ${item.role}`;
+
+      const role = document.createElement("strong");
+      role.textContent = item.role === "user" ? "你" : "助手";
+
+      const content = document.createElement("p");
+      content.textContent = item.content;
+
+      bubble.append(role, content);
+      nodes.messages.append(bubble);
+    }
+
+    nodes.messages.scrollTop = nodes.messages.scrollHeight;
+  }
+
+  function pushMessage(role, content) {
+    const arr = activeMessages();
+    arr.push({ role, content });
+    if (arr.length > 24) arr.splice(0, arr.length - 24);
+    save();
+    renderMessages();
+  }
+
+  function buildMessages() {
+    const messages = [{ role: "system", content: "你是一个友好、简洁、靠谱的中文助手。" }];
+    for (const item of activeMessages()) {
+      if ((item.role === "user" || item.role === "assistant") && typeof item.content === "string") {
+        messages.push({ role: item.role, content: item.content.slice(0, 12000) });
+      }
+    }
+    return messages;
+  }
+
+  async function sendMessage() {
+    if (sending) return;
+
+    const provider = state.provider;
+    const config = PROVIDERS[provider];
+    const model = String(nodes.model.value || "").trim();
+    const input = nodes.input.value.trim();
+
+    if (!input) {
+      setStatus("请输入问题", "warn");
+      return;
+    }
+
+    if (!config.apiKey) {
+      setStatus("缺少 API Key，请先在组件文件中配置", "error");
+      return;
+    }
+
+    if (!model) {
+      setStatus("请选择模型", "warn");
+      return;
+    }
+
+    pushMessage("user", input);
+    nodes.input.value = "";
+
+    sending = true;
+    nodes.send.disabled = true;
+    setStatus(`正在请求 ${provider} / ${model} ...`, "loading");
+
+    try {
+      const response = await fetch(config.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`
+        },
+        body: JSON.stringify({
+          model,
+          messages: buildMessages(),
+          temperature: 0.7,
+          top_p: 1,
+          max_tokens: 1024,
+          stream: false
+        })
+      });
+
+      const text = await response.text();
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        const detail = data?.error?.message || data?.message || text || `HTTP ${response.status}`;
+        throw new Error(detail);
+      }
+
+      const message = data?.choices?.[0]?.message;
+      let output = "";
+
+      if (typeof message?.content === "string") {
+        output = message.content;
+      } else if (Array.isArray(message?.content)) {
+        output = message.content.map((part) => part?.text || part?.content || "").join("\n");
+      } else if (typeof data?.output_text === "string") {
+        output = data.output_text;
+      }
+
+      output = String(output || "").trim() || "模型返回了空内容。";
+      pushMessage("assistant", output);
+      setStatus("完成", "ok");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "未知错误";
+      pushMessage("assistant", `请求失败：${msg}`);
+      setStatus("失败，请检查 Key、模型名、额度或 CORS", "error");
+    } finally {
+      sending = false;
+      nodes.send.disabled = false;
+    }
+  }
+
+  nodes.provider.addEventListener("change", () => {
+    state.provider = nodes.provider.value;
+    save();
+    renderModels();
+    renderMessages();
+  });
+
+  nodes.model.addEventListener("change", () => {
+    state.modelByProvider[state.provider] = nodes.model.value;
+    save();
+  });
+
+  nodes.clear.addEventListener("click", () => {
+    state.messagesByProvider[state.provider] = [];
+    save();
+    renderMessages();
+    setStatus("已清空当前平台对话", "ok");
+  });
+
+  nodes.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await sendMessage();
+  });
+
+  nodes.input.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      await sendMessage();
+    }
+  });
+
+  load();
+  nodes.provider.value = state.provider;
+  renderModels();
+  renderMessages();
+  setStatus("就绪");
+})();
+</script>
+
+<style>
+.chat-widget {
+  position: fixed;
+  top: var(--side-panel-top);
+  right: var(--side-panel-offset);
+  bottom: var(--side-panel-bottom);
+  z-index: 60;
+  width: var(--side-panel-width);
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+}
+
+.chat-panel {
+  height: 100%;
+  border: 1px solid var(--side-panel-line);
+  border-radius: var(--side-panel-radius);
+  overflow: hidden;
+  background: #fffaf0;
+  box-shadow: var(--side-panel-shadow);
+  display: grid;
+  grid-template-rows: auto 1fr auto auto auto;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.72rem 0.82rem;
+  border-bottom: 1px solid #ebdec0;
+  background: linear-gradient(120deg, #fff4db, #ffe9d7);
+}
+
+.chat-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.chat-head small {
+  color: #6f614d;
+  font-size: 0.73rem;
+}
+
+.chat-messages {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.82rem;
+  display: grid;
+  gap: 0.55rem;
+  background: #fffdf7;
+}
+
+.chat-empty {
+  margin: 0;
+  color: #746a55;
+  font-size: 0.82rem;
+}
+
+.chat-bubble {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.56rem 0.66rem;
+  border-radius: 12px;
+  border: 1px solid #e7dcc0;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.chat-bubble strong {
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+.chat-bubble.user {
+  background: #fef5df;
+}
+
+.chat-bubble.assistant {
+  background: #f4f9ff;
+}
+
+.chat-bubble p {
+  margin: 0;
+}
+
+.chat-form {
+  border-top: 1px solid #ebdec0;
+  padding: 0.7rem 0.82rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.42rem;
+}
+
+.chat-form textarea {
+  border: 1px solid #d8c49f;
+  border-radius: 10px;
+  padding: 0.5rem 0.58rem;
+  font-size: 0.84rem;
+  resize: vertical;
+  min-height: 54px;
+}
+
+.chat-form button {
+  border: 1px solid #bd5b3c;
+  background: #cb5e3c;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.44rem 0.72rem;
+  cursor: pointer;
+}
+
+.chat-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-controls {
+  border-top: 1px solid #ebdec0;
+  background: #fff9ec;
+  padding: 0.72rem 0.82rem;
+  display: grid;
+  gap: 0.56rem;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.control-grid label {
+  display: grid;
+  gap: 0.24rem;
+  font-size: 0.78rem;
+}
+
+.control-grid select {
+  width: 100%;
+  border: 1px solid #d8c49f;
+  border-radius: 10px;
+  background: #fff;
+  color: #2f2f2f;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+}
+
+.control-grid button {
+  grid-column: 1 / -1;
+  border: 1px solid #d8c49f;
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.34rem 0.72rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  height: 34px;
+}
+
+.chat-tip {
+  margin: 0;
+  color: #6d6149;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.chat-status {
+  margin: 0;
+  border-top: 1px solid #ebdec0;
+  padding: 0.42rem 0.82rem 0.62rem;
+  font-size: 0.76rem;
+  color: #605948;
+  background: #fffaf0;
+}
+
+.chat-status[data-type="error"] {
+  color: #8f2d2d;
+}
+
+.chat-status[data-type="ok"] {
+  color: #2e6b2e;
+}
+
+@media (max-width: 960px) {
+  .chat-widget {
+    top: auto;
+    right: 0.56rem;
+    left: 0.56rem;
+    width: auto;
+    bottom: 0.56rem;
+  }
+
+  .chat-panel {
+    height: auto;
+    max-height: 82vh;
+    grid-template-rows: auto minmax(180px, 1fr) auto auto auto;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .control-grid button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .chat-form {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-form button {
+    width: 100%;
+  }
+}
+</style>
+

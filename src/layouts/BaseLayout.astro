@@ -1,0 +1,73 @@
+﻿---
+import ChatSidebar from "../components/ChatSidebar.astro";
+import { siteConfig } from "../site.config";
+import "../styles/global.css";
+
+const { title = siteConfig.title, description = siteConfig.description } = Astro.props;
+const currentPath = Astro.url.pathname;
+const showChatSidebar = currentPath === "/";
+const canonicalBase = (Astro.site && Astro.site.toString()) || siteConfig.siteUrl;
+
+const ui = {
+  homeAria: "返回首页",
+  tagline: "记录热爱，认真做梦 ✨",
+  navAria: "主导航"
+};
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content={siteConfig.author} />
+    <link rel="canonical" href={new URL(currentPath, canonicalBase).toString()} />
+    <link rel="alternate" type="application/rss+xml" href="/rss.xml" title={`${siteConfig.title} RSS`} />
+  </head>
+  <body>
+    <div class="page-glow" aria-hidden="true"></div>
+    <div class="site-shell">
+      <header class="site-header">
+        <a href="/" class="brand" aria-label={ui.homeAria}>
+          <span class="brand-mark">🦐</span>
+          <span class="brand-text">
+            <strong>{siteConfig.title}</strong>
+            <small>{ui.tagline}</small>
+          </span>
+        </a>
+
+        <nav class="main-nav" aria-label={ui.navAria}>
+          {siteConfig.nav.map((item) => (
+            <a
+              href={item.href}
+              class:list={{
+                active:
+                  currentPath === item.href ||
+                  (item.href !== "/" && currentPath.startsWith(item.href))
+              }}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </header>
+
+      <main class="content">
+        <slot />
+      </main>
+
+      <footer class="site-footer">
+        <p>
+          <span>{siteConfig.title}</span>
+          <span>Made with Astro</span>
+          <span>{new Date().getFullYear()}</span>
+        </p>
+      </footer>
+    </div>
+
+    {showChatSidebar && <ChatSidebar />}
+  </body>
+</html>

@@ -1,0 +1,46 @@
+---
+import { getCollection } from "astro:content";
+import HomeLeftSidebar from "../components/HomeLeftSidebar.astro";
+import PostCard from "../components/PostCard.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteConfig } from "../site.config";
+
+const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+const latestPosts = posts.slice(0, 4);
+
+const calendarPosts = posts.map((post) => ({
+  date: post.data.pubDate.toISOString().slice(0, 10),
+  slug: post.slug,
+  title: post.data.title
+}));
+---
+
+<BaseLayout title={siteConfig.title} description={siteConfig.description}>
+  <HomeLeftSidebar posts={calendarPosts} />
+
+  <section class="home-center-column">
+    <section class="hero">
+      <h1>欢迎来到虾梦实验室</h1>
+      <p>
+        中间看内容，右边聊模型，左边看导航。每天更新的文章可以在左侧日历里直接点进去。
+      </p>
+      <div class="link-row">
+        <a class="button button-ghost" href="/blog/">进入博客列表</a>
+      </div>
+    </section>
+
+    <section class="section-head">
+      <h2>最近更新</h2>
+      <a href="/blog/">查看全部</a>
+    </section>
+
+    <div class="home-posts-list">
+      {latestPosts.map((post) => (
+        <PostCard post={post} />
+      ))}
+    </div>
+  </section>
+</BaseLayout>
