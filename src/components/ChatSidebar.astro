@@ -511,18 +511,24 @@
 }
 
 @media (max-width: 960px) {
+  :global(body) {
+    padding-bottom: calc(25dvh + 0.9rem);
+  }
+
   .chat-widget {
     top: auto;
     right: 0.56rem;
     left: 0.56rem;
     width: auto;
     bottom: 0.56rem;
+    height: 25dvh;
+    max-height: 25dvh;
   }
 
   .chat-panel {
-    height: auto;
-    max-height: 82vh;
-    grid-template-rows: auto minmax(180px, 1fr) auto auto auto;
+    height: 100%;
+    max-height: none;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   }
 
   .control-grid {
@@ -544,4 +550,5 @@
   }
 }
 </style>
+
 
