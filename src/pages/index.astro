@@ -171,8 +171,8 @@ const searchIndexJson = JSON.stringify(
   function runSearch() {
     const query = input.value.trim();
     if (!query) {
-      const latest = items.slice(0, 8);
-      render(latest, `共 ${items.length} 篇文章，显示最近 ${latest.length} 篇。`);
+      list.innerHTML = "";
+      meta.textContent = `共 ${items.length} 篇文章，请先输入关键词再搜索。`;
       return;
     }
 
@@ -191,5 +191,6 @@ const searchIndexJson = JSON.stringify(
   runSearch();
 })();
 </script>
+
 
 
