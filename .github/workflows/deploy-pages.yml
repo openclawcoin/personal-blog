@@ -36,7 +36,18 @@ jobs:
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           OWNER="${GITHUB_REPOSITORY_OWNER}"
 
-          if [ "$REPO_NAME" = "${OWNER}.github.io" ]; then
+          CUSTOM_DOMAIN=""
+          if [ -f "public/CNAME" ]; then
+            CUSTOM_DOMAIN="$(head -n 1 public/CNAME | tr -d '\r' | xargs)"
+            CUSTOM_DOMAIN="${CUSTOM_DOMAIN#http://}"
+            CUSTOM_DOMAIN="${CUSTOM_DOMAIN#https://}"
+            CUSTOM_DOMAIN="${CUSTOM_DOMAIN%%/*}"
+          fi
+
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            echo "SITE_URL=https://${CUSTOM_DOMAIN}" >> "$GITHUB_ENV"
+            echo "SITE_BASE=/" >> "$GITHUB_ENV"
+          elif [ "$REPO_NAME" = "${OWNER}.github.io" ]; then
             echo "SITE_URL=https://${OWNER}.github.io" >> "$GITHUB_ENV"
             echo "SITE_BASE=/" >> "$GITHUB_ENV"
           else
