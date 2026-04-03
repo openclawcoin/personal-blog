@@ -74,16 +74,53 @@ import { siteConfig } from "../site.config";
 
         <label>
           正文（Markdown）
+          <div class="md-toolbar" data-md-toolbar>
+            <button type="button" data-md-action="h2">H2</button>
+            <button type="button" data-md-action="h3">H3</button>
+            <button type="button" data-md-action="bold">粗体</button>
+            <button type="button" data-md-action="italic">斜体</button>
+            <button type="button" data-md-action="link">链接</button>
+            <button type="button" data-md-action="image">图片</button>
+            <button type="button" data-md-action="code">代码块</button>
+            <button type="button" data-md-action="quote">引用</button>
+            <button type="button" data-md-action="ul">无序列表</button>
+            <button type="button" data-md-action="ol">有序列表</button>
+            <button type="button" data-md-action="hr">分割线</button>
+          </div>
           <textarea data-body rows="16" placeholder="在这里写正文。支持图片/音频/视频 HTML 代码。" required></textarea>
         </label>
 
         <div class="action-row">
           <button type="button" class="ghost" data-preview-file>预览文件名</button>
-          <button type="submit" class="primary">发布到 GitHub</button>
+          <button type="submit" class="primary" data-submit>发布到 GitHub</button>
         </div>
 
         <p class="writer-path" data-file-path>将生成：`src/content/blog/日期-标题.md`</p>
         <p class="writer-status" data-status>就绪</p>
+      </section>
+
+      <section class="writer-card writer-manage">
+        <h2>已发布文章管理</h2>
+
+        <div class="manage-head">
+          <button type="button" class="ghost" data-load-posts>刷新文章列表</button>
+          <p class="writer-mini">读取仓库中的 `src/content/blog/*.md`</p>
+        </div>
+
+        <label>
+          选择文章
+          <select data-post-select>
+            <option value="">请先点击“刷新文章列表”</option>
+          </select>
+        </label>
+
+        <div class="action-row">
+          <button type="button" class="ghost" data-load-selected>载入编辑</button>
+          <button type="button" class="danger" data-delete-selected>删除文章</button>
+          <button type="button" class="ghost" data-exit-edit>退出编辑模式</button>
+        </div>
+
+        <p class="writer-mini" data-editing-hint>当前模式：新建文章</p>
       </section>
     </form>
 
@@ -99,6 +136,7 @@ import { siteConfig } from "../site.config";
 <script is:inline>
 (() => {
   const STORAGE = "shrimp.writer.settings.v1";
+  const BLOG_DIR = "src/content/blog";
 
   const form = document.querySelector("[data-writer-form]");
   if (!form) return;
@@ -115,15 +153,29 @@ import { siteConfig } from "../site.config";
     tags: form.querySelector("[data-tags]"),
     draft: form.querySelector("[data-draft]"),
     body: form.querySelector("[data-body]"),
+    mdToolbar: form.querySelector("[data-md-toolbar]"),
     previewFile: form.querySelector("[data-preview-file]"),
+    submit: form.querySelector("[data-submit]"),
     filePath: form.querySelector("[data-file-path]"),
-    status: form.querySelector("[data-status]")
+    status: form.querySelector("[data-status]"),
+    loadPosts: form.querySelector("[data-load-posts]"),
+    postSelect: form.querySelector("[data-post-select]"),
+    loadSelected: form.querySelector("[data-load-selected]"),
+    deleteSelected: form.querySelector("[data-delete-selected]"),
+    exitEdit: form.querySelector("[data-exit-edit]"),
+    editingHint: form.querySelector("[data-editing-hint]")
   };
 
   const requiredNodes = Object.values(nodes);
   if (requiredNodes.some((node) => !node)) return;
 
-  let publishing = false;
+  const state = {
+    publishing: false,
+    loadingPosts: false,
+    editingPath: "",
+    editingSha: "",
+    postEntries: []
+  };
 
   function todayText() {
     return new Date().toISOString().slice(0, 10);
@@ -150,11 +202,55 @@ import { siteConfig } from "../site.config";
     return String(value || "").replace(/"/g, '\\"').trim();
   }
 
+  function stripQuotes(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+
+    if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+      return text.slice(1, -1).replace(/\\"/g, '"');
+    }
+
+    return text.replace(/\\"/g, '"');
+  }
+
   function toBase64Unicode(str) {
     const bytes = new TextEncoder().encode(str);
     let binary = "";
     for (const b of bytes) binary += String.fromCharCode(b);
     return btoa(binary);
+  }
+
+  function fromBase64Unicode(str) {
+    const binary = atob(String(str || "").replace(/\n/g, ""));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  function encodeRepoPath(path) {
+    return path.split("/").map(encodeURIComponent).join("/");
+  }
+
+  function getHeaders(token) {
+    return {
+      Accept: "application/vnd.github+json",
+      Authorization: `Bearer ${token}`,
+      "X-GitHub-Api-Version": "2022-11-28"
+    };
+  }
+
+  function setStatus(text, kind = "") {
+    nodes.status.textContent = text;
+    nodes.status.dataset.type = kind;
+  }
+
+  function getPublishedArticleUrl(articleSlug) {
+    const pathname = String(window.location.pathname || "/");
+    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
+    const writeMarker = "/write/";
+    const markerIndex = normalizedPath.lastIndexOf(writeMarker);
+    const basePath = markerIndex >= 0 ? normalizedPath.slice(0, markerIndex) : "";
+    const articlePath = `${basePath}/blog/${articleSlug}/`.replace(/\/{2,}/g, "/");
+    return new URL(articlePath, window.location.origin).toString();
   }
 
   function buildFilename() {
@@ -163,8 +259,8 @@ import { siteConfig } from "../site.config";
     return `${date}-${slug}.md`;
   }
 
-  function buildFilePath() {
-    return `src/content/blog/${buildFilename()}`;
+  function buildNewFilePath() {
+    return `${BLOG_DIR}/${buildFilename()}`;
   }
 
   function buildFrontmatter() {
@@ -196,23 +292,98 @@ import { siteConfig } from "../site.config";
     return `${buildFrontmatter()}\n${body}\n`;
   }
 
-  function setStatus(text, kind = "") {
-    nodes.status.textContent = text;
-    nodes.status.dataset.type = kind;
+  function parseMarkdownFile(markdown) {
+    const text = String(markdown || "");
+    const matched = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
+
+    const parsed = {
+      title: "",
+      description: "",
+      pubDate: todayText(),
+      tags: [],
+      draft: false,
+      body: text.trim()
+    };
+
+    if (!matched) return parsed;
+
+    const frontmatter = matched[1];
+    parsed.body = String(matched[2] || "").trim();
+
+    const lines = frontmatter.split(/\r?\n/);
+    let readingTags = false;
+
+    for (const line of lines) {
+      if (/^\s*tags:\s*$/.test(line)) {
+        readingTags = true;
+        continue;
+      }
+
+      const tagMatched = line.match(/^\s*-\s*(.+)\s*$/);
+      if (readingTags && tagMatched) {
+        parsed.tags.push(stripQuotes(tagMatched[1]));
+        continue;
+      }
+
+      if (readingTags && /^\s*$/.test(line)) {
+        continue;
+      }
+
+      readingTags = false;
+
+      let value = "";
+      if ((value = (line.match(/^\s*title:\s*(.+)\s*$/) || [])[1])) {
+        parsed.title = stripQuotes(value);
+        continue;
+      }
+
+      if ((value = (line.match(/^\s*description:\s*(.+)\s*$/) || [])[1])) {
+        parsed.description = stripQuotes(value);
+        continue;
+      }
+
+      if ((value = (line.match(/^\s*pubDate:\s*(.+)\s*$/) || [])[1])) {
+        parsed.pubDate = String(stripQuotes(value)).slice(0, 10);
+        continue;
+      }
+
+      if ((value = (line.match(/^\s*draft:\s*(.+)\s*$/) || [])[1])) {
+        parsed.draft = /true/i.test(value);
+      }
+    }
+
+    if (!parsed.pubDate) parsed.pubDate = todayText();
+    return parsed;
   }
 
-  function getPublishedArticleUrl(articleSlug) {
-    const pathname = String(window.location.pathname || "/");
-    const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
-    const writeMarker = "/write/";
-    const markerIndex = normalizedPath.lastIndexOf(writeMarker);
-    const basePath = markerIndex >= 0 ? normalizedPath.slice(0, markerIndex) : "";
-    const articlePath = `${basePath}/blog/${articleSlug}/`.replace(/\/{2,}/g, "/");
-    return new URL(articlePath, window.location.origin).toString();
+  function applyParsedToForm(parsed) {
+    nodes.title.value = parsed.title || "";
+    nodes.description.value = parsed.description || "";
+    nodes.date.value = parsed.pubDate || todayText();
+    nodes.tags.value = Array.isArray(parsed.tags) ? parsed.tags.join(", ") : "";
+    nodes.draft.checked = Boolean(parsed.draft);
+    nodes.body.value = parsed.body || "";
   }
 
   function refreshPath() {
-    nodes.filePath.textContent = `将生成：${buildFilePath()}`;
+    if (state.editingPath) {
+      nodes.filePath.textContent = `正在编辑：${state.editingPath}`;
+      return;
+    }
+
+    nodes.filePath.textContent = `将生成：${buildNewFilePath()}`;
+  }
+
+  function updateModeUi() {
+    if (state.editingPath) {
+      nodes.submit.textContent = "保存修改到 GitHub";
+      nodes.editingHint.textContent = `当前模式：编辑 ${state.editingPath}`;
+    } else {
+      nodes.submit.textContent = "发布到 GitHub";
+      nodes.editingHint.textContent = "当前模式：新建文章";
+    }
+
+    refreshPath();
   }
 
   function saveSettings() {
@@ -242,8 +413,22 @@ import { siteConfig } from "../site.config";
     }
   }
 
+  function getRepoConfig() {
+    const token = nodes.token.value.trim();
+    const owner = nodes.owner.value.trim();
+    const repo = nodes.repo.value.trim();
+    const branch = nodes.branch.value.trim() || "main";
+
+    if (!token || !owner || !repo) {
+      setStatus("请先填写 Token、Owner、Repo。", "warn");
+      return null;
+    }
+
+    return { token, owner, repo, branch };
+  }
+
   async function fetchFileSha({ owner, repo, branch, path, headers }) {
-    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const encodedPath = encodeRepoPath(path);
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
     const resp = await fetch(url, { headers });
 
@@ -258,49 +443,336 @@ import { siteConfig } from "../site.config";
     return typeof data.sha === "string" ? data.sha : "";
   }
 
-  async function publish() {
-    if (publishing) return;
+  async function fetchFileContent({ owner, repo, branch, path, headers }) {
+    const encodedPath = encodeRepoPath(path);
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}?ref=${encodeURIComponent(branch)}`;
+    const resp = await fetch(url, { headers });
 
-    const token = nodes.token.value.trim();
-    const owner = nodes.owner.value.trim();
-    const repo = nodes.repo.value.trim();
-    const branch = nodes.branch.value.trim() || "main";
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const message = data?.message || `读取文章失败（HTTP ${resp.status}）`;
+      throw new Error(message);
+    }
 
-    if (!token || !owner || !repo) {
-      setStatus("请先填写 Token、Owner、Repo。", "warn");
+    const encoded = typeof data.content === "string" ? data.content : "";
+    const markdown = encoded ? fromBase64Unicode(encoded) : "";
+
+    return {
+      sha: typeof data.sha === "string" ? data.sha : "",
+      markdown
+    };
+  }
+
+  function renderPostOptions(preferredPath = "") {
+    const keepPath = preferredPath || nodes.postSelect.value;
+    nodes.postSelect.innerHTML = "";
+
+    if (!state.postEntries.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "仓库里还没有文章";
+      nodes.postSelect.append(option);
       return;
     }
+
+    for (const entry of state.postEntries) {
+      const option = document.createElement("option");
+      option.value = entry.path;
+      option.textContent = entry.name;
+      nodes.postSelect.append(option);
+    }
+
+    const hasKeep = state.postEntries.some((entry) => entry.path === keepPath);
+    nodes.postSelect.value = hasKeep ? keepPath : state.postEntries[0].path;
+  }
+
+  function getSelectedEntry() {
+    const path = String(nodes.postSelect.value || "");
+    if (!path) return null;
+    return state.postEntries.find((entry) => entry.path === path) || null;
+  }
+
+  async function listPosts({ silent = false, preserveSelection = "" } = {}) {
+    if (state.loadingPosts) return;
+
+    const config = getRepoConfig();
+    if (!config) return;
+
+    state.loadingPosts = true;
+    nodes.loadPosts.disabled = true;
+
+    if (!silent) setStatus("正在读取文章列表...", "loading");
+
+    try {
+      const { token, owner, repo, branch } = config;
+      const headers = getHeaders(token);
+      const encodedDir = encodeRepoPath(BLOG_DIR);
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedDir}?ref=${encodeURIComponent(branch)}`;
+      const resp = await fetch(url, { headers });
+      const data = await resp.json().catch(() => []);
+
+      if (!resp.ok) {
+        const message = data?.message || `读取列表失败（HTTP ${resp.status}）`;
+        throw new Error(message);
+      }
+
+      const files = Array.isArray(data)
+        ? data.filter((item) => item?.type === "file" && typeof item?.name === "string" && item.name.endsWith(".md"))
+        : [];
+
+      files.sort((a, b) => String(b.name).localeCompare(String(a.name), "zh-CN"));
+
+      state.postEntries = files.map((item) => ({
+        name: String(item.name || ""),
+        path: String(item.path || ""),
+        sha: String(item.sha || "")
+      }));
+
+      renderPostOptions(preserveSelection);
+
+      if (!silent) {
+        setStatus(`已加载 ${state.postEntries.length} 篇文章。`, "ok");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "未知错误";
+      setStatus(`读取列表失败：${message}`, "error");
+    } finally {
+      state.loadingPosts = false;
+      nodes.loadPosts.disabled = false;
+    }
+  }
+
+  function startEditing(path, sha = "") {
+    state.editingPath = path;
+    state.editingSha = sha;
+    updateModeUi();
+  }
+
+  function stopEditing() {
+    state.editingPath = "";
+    state.editingSha = "";
+    updateModeUi();
+  }
+
+  async function loadSelectedPost() {
+    const config = getRepoConfig();
+    if (!config) return;
+
+    const entry = getSelectedEntry();
+    if (!entry) {
+      setStatus("请先选择一篇文章。", "warn");
+      return;
+    }
+
+    setStatus("正在载入文章内容...", "loading");
+
+    try {
+      const headers = getHeaders(config.token);
+      const file = await fetchFileContent({
+        owner: config.owner,
+        repo: config.repo,
+        branch: config.branch,
+        path: entry.path,
+        headers
+      });
+
+      const parsed = parseMarkdownFile(file.markdown);
+      applyParsedToForm(parsed);
+      startEditing(entry.path, file.sha || entry.sha);
+      setStatus(`已载入：${entry.name}，现在可以编辑并保存。`, "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "未知错误";
+      setStatus(`载入失败：${message}`, "error");
+    }
+  }
+
+  async function deleteSelectedPost() {
+    const config = getRepoConfig();
+    if (!config) return;
+
+    const entry = getSelectedEntry();
+    if (!entry) {
+      setStatus("请先选择要删除的文章。", "warn");
+      return;
+    }
+
+    const ok = window.confirm(`确定要删除这篇文章吗？\n${entry.name}`);
+    if (!ok) return;
+
+    setStatus("正在删除文章...", "loading");
+
+    try {
+      const headers = getHeaders(config.token);
+      const path = entry.path;
+      const encodedPath = encodeRepoPath(path);
+      const sha = entry.sha || (await fetchFileSha({
+        owner: config.owner,
+        repo: config.repo,
+        branch: config.branch,
+        path,
+        headers
+      }));
+
+      if (!sha) {
+        throw new Error("未获取到文件 SHA，无法删除。");
+      }
+
+      const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${encodedPath}`;
+      const resp = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          message: `delete: ${entry.name}`,
+          sha,
+          branch: config.branch
+        })
+      });
+
+      const result = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        const message = result?.message || `删除失败（HTTP ${resp.status}）`;
+        throw new Error(message);
+      }
+
+      if (state.editingPath === path) {
+        stopEditing();
+      }
+
+      await listPosts({ silent: true });
+      setStatus(`已删除：${entry.name}`, "ok");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "未知错误";
+      setStatus(`删除失败：${message}`, "error");
+    }
+  }
+
+  function replaceSelection(prefix, suffix, placeholder = "") {
+    const textarea = nodes.body;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = textarea.value.slice(start, end);
+    const center = selected || placeholder;
+
+    const next = `${textarea.value.slice(0, start)}${prefix}${center}${suffix}${textarea.value.slice(end)}`;
+    textarea.value = next;
+
+    const selectStart = start + prefix.length;
+    const selectEnd = selectStart + center.length;
+    textarea.focus();
+    textarea.setSelectionRange(selectStart, selectEnd);
+  }
+
+  function insertSnippet(snippet) {
+    const textarea = nodes.body;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    textarea.value = `${textarea.value.slice(0, start)}${snippet}${textarea.value.slice(end)}`;
+    const cursor = start + snippet.length;
+    textarea.focus();
+    textarea.setSelectionRange(cursor, cursor);
+  }
+
+  function withSelectedLines(mapper) {
+    const textarea = nodes.body;
+    const value = textarea.value;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const lineStart = value.lastIndexOf("\n", Math.max(0, start - 1)) + 1;
+    const lineEndIndex = value.indexOf("\n", end);
+    const lineEnd = lineEndIndex === -1 ? value.length : lineEndIndex;
+
+    const segment = value.slice(lineStart, lineEnd);
+    const lines = segment ? segment.split("\n") : [""];
+    const replaced = lines.map((line, index) => mapper(line, index)).join("\n");
+
+    textarea.value = `${value.slice(0, lineStart)}${replaced}${value.slice(lineEnd)}`;
+    textarea.focus();
+    textarea.setSelectionRange(lineStart, lineStart + replaced.length);
+  }
+
+  function applyMarkdownAction(action) {
+    switch (action) {
+      case "h2":
+        withSelectedLines((line) => `## ${line || "小标题"}`);
+        break;
+      case "h3":
+        withSelectedLines((line) => `### ${line || "小标题"}`);
+        break;
+      case "bold":
+        replaceSelection("**", "**", "加粗文字");
+        break;
+      case "italic":
+        replaceSelection("*", "*", "斜体文字");
+        break;
+      case "link":
+        replaceSelection("[", "](https://example.com)", "链接文字");
+        break;
+      case "image":
+        replaceSelection("![", "](https://example.com/image.jpg)", "图片描述");
+        break;
+      case "code":
+        replaceSelection("```\n", "\n```", "在这里写代码");
+        break;
+      case "quote":
+        withSelectedLines((line) => `> ${line || "引用内容"}`);
+        break;
+      case "ul":
+        withSelectedLines((line) => `- ${line || "列表项"}`);
+        break;
+      case "ol":
+        withSelectedLines((line, index) => `${index + 1}. ${line || "列表项"}`);
+        break;
+      case "hr":
+        insertSnippet("\n---\n");
+        break;
+      default:
+        break;
+    }
+  }
+
+  async function publish() {
+    if (state.publishing) return;
+
+    const config = getRepoConfig();
+    if (!config) return;
 
     if (!nodes.title.value.trim() || !nodes.description.value.trim() || !nodes.body.value.trim()) {
       setStatus("标题、简介、正文都需要填写。", "warn");
       return;
     }
 
-    publishing = true;
-    setStatus("正在发布到 GitHub...", "loading");
+    state.publishing = true;
+    nodes.submit.disabled = true;
+
+    setStatus(state.editingPath ? "正在保存修改到 GitHub..." : "正在发布到 GitHub...", "loading");
 
     try {
-      const path = buildFilePath();
+      const path = state.editingPath || buildNewFilePath();
       const markdown = buildMarkdown();
-      const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+      const encodedPath = encodeRepoPath(path);
+      const headers = getHeaders(config.token);
 
-      const headers = {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28"
-      };
-
-      const sha = await fetchFileSha({ owner, repo, branch, path, headers });
+      const sha = await fetchFileSha({
+        owner: config.owner,
+        repo: config.repo,
+        branch: config.branch,
+        path,
+        headers
+      });
 
       const payload = {
-        message: `${sha ? "update" : "create"}: ${nodes.title.value.trim()}`,
+        message: `${state.editingPath ? "edit" : sha ? "update" : "create"}: ${nodes.title.value.trim()}`,
         content: toBase64Unicode(markdown),
-        branch
+        branch: config.branch
       };
 
       if (sha) payload.sha = sha;
 
-      const putUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodedPath}`;
+      const putUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/${encodedPath}`;
       const putResp = await fetch(putUrl, {
         method: "PUT",
         headers: {
@@ -316,25 +788,31 @@ import { siteConfig } from "../site.config";
         throw new Error(message);
       }
 
+      if (state.editingPath) {
+        state.editingSha = result?.content?.sha || sha || state.editingSha;
+      }
+
       saveSettings();
 
-      const articleSlug = buildFilename().replace(/\.md$/, "");
+      const articleSlug = path.split("/").pop().replace(/\.md$/, "");
       const articleUrl = getPublishedArticleUrl(articleSlug);
       const commitUrl = result?.commit?.html_url || "";
       const extra = commitUrl ? `，提交：${commitUrl}` : "";
 
+      await listPosts({ silent: true, preserveSelection: path });
       setStatus(`发布成功，预计部署完成后可访问：${articleUrl}${extra}`, "ok");
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知错误";
       setStatus(`发布失败：${message}`, "error");
     } finally {
-      publishing = false;
+      state.publishing = false;
+      nodes.submit.disabled = false;
     }
   }
 
   nodes.date.value = todayText();
   loadSettings();
-  refreshPath();
+  updateModeUi();
 
   nodes.title.addEventListener("input", refreshPath);
   nodes.date.addEventListener("input", refreshPath);
@@ -346,15 +824,47 @@ import { siteConfig } from "../site.config";
     if (nodes.saveToken.checked) saveSettings();
   });
 
+  nodes.mdToolbar.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const button = target.closest("button[data-md-action]");
+    if (!(button instanceof HTMLButtonElement)) return;
+
+    const action = String(button.dataset.mdAction || "");
+    applyMarkdownAction(action);
+  });
+
   nodes.previewFile.addEventListener("click", () => {
     refreshPath();
     setStatus("文件名预览已更新。", "ok");
+  });
+
+  nodes.loadPosts.addEventListener("click", async () => {
+    await listPosts();
+  });
+
+  nodes.loadSelected.addEventListener("click", async () => {
+    await loadSelectedPost();
+  });
+
+  nodes.deleteSelected.addEventListener("click", async () => {
+    await deleteSelectedPost();
+  });
+
+  nodes.exitEdit.addEventListener("click", () => {
+    stopEditing();
+    setStatus("已退出编辑模式，当前为新建文章。", "ok");
   });
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     await publish();
   });
+
+  if (nodes.token.value.trim() && nodes.owner.value.trim() && nodes.repo.value.trim()) {
+    listPosts({ silent: true });
+  }
 })();
 </script>
 
@@ -415,7 +925,8 @@ import { siteConfig } from "../site.config";
 .writer-card input[type="text"],
 .writer-card input[type="password"],
 .writer-card input[type="date"],
-.writer-card textarea {
+.writer-card textarea,
+.writer-card select {
   border: 1px solid #d4c5a5;
   border-radius: 10px;
   background: #fff;
@@ -429,6 +940,28 @@ import { siteConfig } from "../site.config";
   min-height: 280px;
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   line-height: 1.55;
+}
+
+.md-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  margin-bottom: 0.26rem;
+}
+
+.md-toolbar button {
+  border: 1px solid #d8c49f;
+  border-radius: 999px;
+  background: #fff;
+  color: #2f342f;
+  padding: 0.24rem 0.58rem;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.md-toolbar button:hover {
+  border-color: #bc6d52;
+  color: #8b3f2b;
 }
 
 .check-row {
@@ -466,12 +999,27 @@ import { siteConfig } from "../site.config";
   color: #2f342f;
 }
 
+.action-row .danger {
+  border: 1px solid #c15d48;
+  background: #fff3ef;
+  color: #8f2d2d;
+}
+
+.manage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.52rem 0.78rem;
+}
+
+.writer-mini,
 .writer-path,
 .writer-status {
   margin: 0;
   font-size: 0.85rem;
 }
 
+.writer-mini,
 .writer-path {
   color: #6f614c;
 }
@@ -500,6 +1048,11 @@ import { siteConfig } from "../site.config";
 @media (max-width: 960px) {
   .writer-grid {
     grid-template-columns: 1fr;
+  }
+
+  .md-toolbar button {
+    font-size: 0.74rem;
+    padding: 0.22rem 0.52rem;
   }
 }
 </style>

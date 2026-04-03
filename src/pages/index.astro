@@ -15,6 +15,16 @@ const latestPosts = posts.slice(0, 4);
 const calendarPosts = posts.map((post) => ({
   date: post.data.pubDate.toISOString().slice(0, 10)
 }));
+
+const searchIndexJson = JSON.stringify(
+  posts.map((post) => ({
+    title: post.data.title,
+    description: post.data.description,
+    tags: post.data.tags,
+    date: post.data.pubDate.toISOString().slice(0, 10),
+    href: withBase(`/blog/${post.slug}/`)
+  }))
+);
 ---
 
 <BaseLayout title={siteConfig.title} description={siteConfig.description}>
@@ -31,6 +41,26 @@ const calendarPosts = posts.map((post) => ({
       </div>
     </section>
 
+    <section class="home-search-card" data-home-search>
+      <div class="home-search-head">
+        <h2>关键词搜索</h2>
+        <small>按标题、简介、标签快速找文章</small>
+      </div>
+
+      <input
+        class="home-search-input"
+        data-home-search-input
+        type="search"
+        placeholder="输入关键词，例如：部署 / AI / 区块链"
+        autocomplete="off"
+      />
+
+      <p class="home-search-meta" data-home-search-meta></p>
+      <ul class="home-search-results" data-home-search-results></ul>
+
+      <script type="application/json" data-home-search-index>{searchIndexJson}</script>
+    </section>
+
     <section class="section-head">
       <h2>最近更新</h2>
       <a href={withBase("/blog/")}>查看全部</a>
@@ -44,3 +74,122 @@ const calendarPosts = posts.map((post) => ({
   </section>
 </BaseLayout>
 
+<script is:inline>
+(() => {
+  const root = document.querySelector("[data-home-search]");
+  if (!root) return;
+
+  const input = root.querySelector("[data-home-search-input]");
+  const meta = root.querySelector("[data-home-search-meta]");
+  const list = root.querySelector("[data-home-search-results]");
+  const indexNode = root.querySelector("[data-home-search-index]");
+
+  if (!input || !meta || !list || !indexNode) return;
+
+  let raw = [];
+  try {
+    raw = JSON.parse(indexNode.textContent || "[]");
+  } catch {
+    raw = [];
+  }
+
+  if (!Array.isArray(raw)) raw = [];
+
+  const items = raw.map((item) => {
+    const title = String(item?.title || "");
+    const description = String(item?.description || "");
+    const tags = Array.isArray(item?.tags) ? item.tags.map((tag) => String(tag || "").trim()).filter(Boolean) : [];
+    const date = String(item?.date || "");
+    const href = String(item?.href || "#");
+
+    return {
+      title,
+      description,
+      tags,
+      date,
+      href,
+      searchText: `${title} ${description} ${tags.join(" ")}`.toLowerCase()
+    };
+  });
+
+  function render(result, message) {
+    list.innerHTML = "";
+    meta.textContent = message;
+
+    if (!result.length) {
+      const empty = document.createElement("li");
+      empty.className = "home-search-empty";
+      empty.textContent = "没有匹配结果，换个关键词试试。";
+      list.append(empty);
+      return;
+    }
+
+    for (const item of result) {
+      const li = document.createElement("li");
+      li.className = "home-search-item";
+
+      const link = document.createElement("a");
+      link.className = "home-search-link";
+      link.href = item.href;
+
+      const title = document.createElement("strong");
+      title.className = "home-search-title";
+      title.textContent = item.title || "未命名文章";
+
+      const desc = document.createElement("p");
+      desc.className = "home-search-desc";
+      desc.textContent = item.description || "暂无简介";
+
+      const info = document.createElement("p");
+      info.className = "home-search-info";
+      const tagsText = item.tags.length ? `#${item.tags.join(" #")}` : "#notes";
+      info.textContent = `${item.date} · ${tagsText}`;
+
+      link.append(title, desc, info);
+      li.append(link);
+      list.append(li);
+    }
+  }
+
+  function scoreItem(item, keywords) {
+    let total = 0;
+
+    for (const keyword of keywords) {
+      let part = 0;
+      const key = keyword.toLowerCase();
+
+      if (item.title.toLowerCase().includes(key)) part += 5;
+      if (item.description.toLowerCase().includes(key)) part += 3;
+      if (item.tags.some((tag) => tag.toLowerCase().includes(key))) part += 4;
+      if (item.searchText.includes(key)) part += 1;
+
+      if (part === 0) return 0;
+      total += part;
+    }
+
+    return total;
+  }
+
+  function runSearch() {
+    const query = input.value.trim();
+    if (!query) {
+      const latest = items.slice(0, 8);
+      render(latest, `共 ${items.length} 篇文章，显示最近 ${latest.length} 篇。`);
+      return;
+    }
+
+    const keywords = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const result = items
+      .map((item) => ({ item, score: scoreItem(item, keywords) }))
+      .filter((entry) => entry.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10)
+      .map((entry) => entry.item);
+
+    render(result, `关键词：${query}，找到 ${result.length} 篇。`);
+  }
+
+  input.addEventListener("input", runSearch);
+  runSearch();
+})();
+</script>

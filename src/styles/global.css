@@ -645,6 +645,108 @@ body {
   min-width: 0;
 }
 
+.home-search-card {
+  margin-top: 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.62rem;
+}
+
+.home-search-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.home-search-head h2 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.home-search-head small {
+  color: #6f614d;
+}
+
+.home-search-input {
+  border: 1px solid #d4c5a5;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f2a2a;
+  padding: 0.56rem 0.64rem;
+  font-size: 0.9rem;
+}
+
+.home-search-input:focus {
+  outline: 2px solid rgba(194, 72, 45, 0.2);
+  border-color: #bc6d52;
+}
+
+.home-search-meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #726a55;
+}
+
+.home-search-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.46rem;
+}
+
+.home-search-item {
+  margin: 0;
+  padding: 0;
+}
+
+.home-search-link {
+  display: grid;
+  gap: 0.22rem;
+  text-decoration: none;
+  color: inherit;
+  border: 1px solid #d8c49f;
+  border-radius: 12px;
+  background: #fffdf7;
+  padding: 0.56rem 0.62rem;
+}
+
+.home-search-link:hover {
+  border-color: #bc6d52;
+  background: #fff7ec;
+}
+
+.home-search-title {
+  font-size: 0.93rem;
+  color: #2f342f;
+}
+
+.home-search-desc {
+  margin: 0;
+  font-size: 0.83rem;
+  color: #5f5a49;
+  line-height: 1.5;
+}
+
+.home-search-info {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #7b725d;
+}
+
+.home-search-empty {
+  border: 1px dashed #d8c49f;
+  border-radius: 12px;
+  padding: 0.58rem 0.62rem;
+  font-size: 0.82rem;
+  color: #746a55;
+}
+
 .home-posts-list {
   display: grid;
   gap: 0.82rem;
@@ -688,10 +790,21 @@ body {
     display: none;
   }
 
+  .home-search-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .home-search-link {
+    padding: 0.5rem 0.54rem;
+  }
+
   .home-center-column .section-head {
     margin-top: 0.2rem;
   }
 }
+
 
 
 
