@@ -1,4 +1,4 @@
-﻿---
+---
 title: "从 0 到 1：把个人博客部署到 GitHub 并稳定上线（完整实操）"
 description: "一篇完整记录：本地运行、SSH 推送、GitHub Pages 配置、上线排错与日常更新流程。"
 pubDate: 2026-04-03
@@ -137,7 +137,7 @@ git push -u origin main
 
 例如：
 
-`https://openclawcoin.github.io/personal-blog/`
+`https://openclaw.github.io/personal-blog/`
 
 ## 八、自定义域名后会怎样
 
