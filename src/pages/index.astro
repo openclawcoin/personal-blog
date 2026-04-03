@@ -41,7 +41,7 @@ const searchIndexJson = JSON.stringify(
       </div>
     </section>
 
-    <section class="home-search-card" data-home-search>
+    <section class="home-search-card" data-home-search data-home-search-index={searchIndexJson}>
       <div class="home-search-head">
         <h2>关键词搜索</h2>
         <small>按标题、简介、标签快速找文章</small>
@@ -58,7 +58,7 @@ const searchIndexJson = JSON.stringify(
       <p class="home-search-meta" data-home-search-meta></p>
       <ul class="home-search-results" data-home-search-results></ul>
 
-      <script type="application/json" data-home-search-index>{searchIndexJson}</script>
+
     </section>
 
     <section class="section-head">
@@ -82,13 +82,11 @@ const searchIndexJson = JSON.stringify(
   const input = root.querySelector("[data-home-search-input]");
   const meta = root.querySelector("[data-home-search-meta]");
   const list = root.querySelector("[data-home-search-results]");
-  const indexNode = root.querySelector("[data-home-search-index]");
-
-  if (!input || !meta || !list || !indexNode) return;
+  if (!input || !meta || !list) return;
 
   let raw = [];
   try {
-    raw = JSON.parse(indexNode.textContent || "[]");
+    raw = JSON.parse(String(root.dataset.homeSearchIndex || "[]"));
   } catch {
     raw = [];
   }
@@ -193,3 +191,5 @@ const searchIndexJson = JSON.stringify(
   runSearch();
 })();
 </script>
+
+
