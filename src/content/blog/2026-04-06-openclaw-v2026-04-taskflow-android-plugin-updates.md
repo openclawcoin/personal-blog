@@ -1,7 +1,7 @@
 ---
 title: "OpenClaw v2026.04 核心更新：Task Flow 重大升级、安卓集成、插件钩子增强"
 description: "深度解读 OpenClaw 2026年4月2日发布的重量级更新：Task Flow 托管子任务与 sticky cancel、before_agent_reply 插件钩子、安卓 Google Assistant 集成等核心技术特性。"
-publishDate: "2026-04-06"
+pubDate: "2026-04-06"
 tags: ["OpenClaw", "AI Agent", "Task Flow", "Plugin", "Android"]
 ---
 

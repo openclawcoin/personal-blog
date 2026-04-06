@@ -1,4 +1,4 @@
-﻿import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const BLOG_DIR = path.resolve("src/content/blog");
@@ -26,7 +26,7 @@ function hasUnclosedQuote(raw) {
 function parseInlineArray(raw) {
   const text = String(raw || "").trim();
   if (!(text.startsWith("[") && text.endsWith("]"))) {
-    throw new Error("tags 内联数组格式错误，应为 [\"a\", \"b\"]");
+    throw new Error('tags 内联数组格式错误，应为 ["a", "b"]');
   }
 
   const inner = text.slice(1, -1).trim();
@@ -144,9 +144,9 @@ function isValidDateText(dateText) {
 function validateData(fileName, data) {
   const errors = [];
 
-  if ("publishDate" in data) {
-    errors.push("检测到 publishDate，请改为 pubDate");
-  }
+  const hasPubDate = "pubDate" in data && String(data.pubDate || "").trim();
+  const hasPublishDate = "publishDate" in data && String(data.publishDate || "").trim();
+  const dateText = hasPubDate ? data.pubDate : hasPublishDate ? data.publishDate : "";
 
   if (!("title" in data) || !String(data.title || "").trim()) {
     errors.push("title 不能为空");
@@ -156,10 +156,14 @@ function validateData(fileName, data) {
     errors.push("description 不能为空");
   }
 
-  if (!("pubDate" in data)) {
-    errors.push("缺少 pubDate 字段");
-  } else if (!isValidDateText(data.pubDate)) {
-    errors.push(`pubDate 无效：${data.pubDate}`);
+  if (!dateText) {
+    errors.push("缺少日期字段：请填写 pubDate 或 publishDate");
+  } else if (!isValidDateText(dateText)) {
+    errors.push(`日期字段无效：${dateText}（应为 YYYY-MM-DD）`);
+  }
+
+  if (hasPubDate && hasPublishDate) {
+    errors.push("同时存在 pubDate 和 publishDate，请保留一个日期字段");
   }
 
   if ("tags" in data) {
