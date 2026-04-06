@@ -58,6 +58,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate blog posts frontmatter
+        run: npm run check:posts
+
       - name: Build site
         run: npm run build
 
@@ -76,3 +79,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+

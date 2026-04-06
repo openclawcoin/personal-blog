@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "personal-blog",
   "version": "0.1.0",
   "private": true,
@@ -7,8 +7,10 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
+    "prebuild": "npm run check:posts",
     "preview": "astro preview",
     "check": "astro check",
+    "check:posts": "node scripts/validate-blog-frontmatter.mjs",
     "new:daily": "powershell -ExecutionPolicy Bypass -File scripts/new-daily-post.ps1"
   },
   "dependencies": {
