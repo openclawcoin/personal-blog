@@ -15,6 +15,7 @@ const currentPath = currentPathFull.startsWith(basePath)
   : currentPathFull;
 
 const showChatSidebar = currentPath === "/";
+const brandName = siteConfig.title.replace(/\s*🦐$/, "");
 
 const withBase = (path: string) => {
   const normalized = path.startsWith("/") ? path : `/${path}`;
@@ -41,6 +42,8 @@ const ui = {
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="author" content={siteConfig.author} />
+    <meta name="theme-color" content="#f4f2e8" />
+    <link rel="icon" type="image/svg+xml" href={withBase("/media/dreamclaw-mark.svg")} />
     <link rel="canonical" href={new URL(currentPathFull, canonicalBase).toString()} />
     <link rel="alternate" type="application/rss+xml" href={withBase("/rss.xml")} title={`${siteConfig.title} RSS`} />
   </head>
@@ -49,9 +52,11 @@ const ui = {
     <div class="site-shell">
       <header class="site-header">
         <a href={withBase("/")} class="brand" aria-label={ui.homeAria}>
-          <span class="brand-mark">🦐</span>
+          <span class="brand-mark">
+            <img src={withBase("/media/dreamclaw-mark.svg")} alt="" width="96" height="96" />
+          </span>
           <span class="brand-text">
-            <strong>{siteConfig.title}</strong>
+            <strong>{brandName}</strong>
             <small>{ui.tagline}</small>
           </span>
         </a>
@@ -78,7 +83,7 @@ const ui = {
 
       <footer class="site-footer">
         <p>
-          <span>{siteConfig.title}</span>
+          <span>{brandName}</span>
           <span>Made with Astro</span>
           <span>{new Date().getFullYear()}</span>
         </p>
@@ -88,3 +93,4 @@ const ui = {
     {showChatSidebar && <ChatSidebar />}
   </body>
 </html>
+
