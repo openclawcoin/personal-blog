@@ -1,4 +1,4 @@
-﻿---
+---
 export const prerender = true;
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -33,6 +33,21 @@ const pageTitle = `${post.data.title} | ${siteConfig.title}`;
         ))}
       </div>
     </header>
+
+    {post.data.coverImage && (
+      <figure class="media-block">
+        <img src={post.data.coverImage} alt={`${post.data.title} cover`} loading="lazy" />
+      </figure>
+    )}
+
+    {post.data.audio && (
+      <figure class="media-block">
+        <audio controls preload="none">
+          <source src={post.data.audio} type="audio/mpeg" />
+          您的浏览器不支持音频播放。
+        </audio>
+      </figure>
+    )}
 
     <div class="post-content">
       <Content />

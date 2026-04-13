@@ -9,6 +9,8 @@ const blog = defineCollection({
       pubDate: z.coerce.date().optional(),
       publishDate: z.coerce.date().optional(),
       updatedDate: z.coerce.date().optional(),
+      coverImage: z.string().optional(),
+      audio: z.string().optional(),
       tags: z.array(z.string()).default([]),
       draft: z.boolean().default(false)
     })
@@ -25,6 +27,8 @@ const blog = defineCollection({
       description: data.description,
       pubDate: (data.pubDate ?? data.publishDate) as Date,
       updatedDate: data.updatedDate,
+      coverImage: data.coverImage,
+      audio: data.audio,
       tags: data.tags,
       draft: data.draft
     }))
