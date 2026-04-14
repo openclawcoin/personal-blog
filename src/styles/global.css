@@ -1,4 +1,4 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap");
 
 :root {
   --bg: #f4f2e8;
@@ -356,6 +356,7 @@ body {
   color: #f5f7fa;
 }
 
+.post-article > figure.media-block,
 .post-content figure.media-block {
   margin: 1.05rem 0 1.2rem;
   border: 1px solid #d9ccaa;
@@ -364,6 +365,7 @@ body {
   padding: 0.72rem;
 }
 
+.post-article > figure.media-block img,
 .post-content figure.media-block img,
 .post-content figure.media-block video,
 .post-content figure.media-block iframe {
@@ -374,12 +376,14 @@ body {
   background: #fff;
 }
 
+.post-article > figure.media-block audio,
 .post-content figure.media-block audio {
   width: 100%;
   display: block;
   min-height: 42px;
 }
 
+.post-article > figure.media-block figcaption,
 .post-content figure.media-block figcaption {
   margin-top: 0.52rem;
   color: #6f614c;
@@ -404,9 +408,20 @@ body {
   width: 100%;
   margin: 0.2rem 0 0.95rem;
 }
+.post-article > figure.article-cover {
+  max-width: min(100%, 560px);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.post-article > figure.article-audio {
+  margin-left: 0;
+  margin-right: 0;
+}
 
 @media (max-width: 560px) {
-  .post-content figure.media-block {
+  .post-article > figure.media-block,
+.post-content figure.media-block {
     padding: 0.58rem;
     border-radius: 12px;
   }

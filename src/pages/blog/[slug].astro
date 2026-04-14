@@ -35,13 +35,13 @@ const pageTitle = `${post.data.title} | ${siteConfig.title}`;
     </header>
 
     {post.data.coverImage && (
-      <figure class="media-block">
+      <figure class="media-block article-cover">
         <img src={post.data.coverImage} alt={`${post.data.title} cover`} loading="lazy" />
       </figure>
     )}
 
     {post.data.audio && (
-      <figure class="media-block">
+      <figure class="media-block article-audio">
         <audio controls preload="none">
           <source src={post.data.audio} type="audio/mpeg" />
           您的浏览器不支持音频播放。
