@@ -1,4 +1,4 @@
-﻿---
+---
 import ChatSidebar from "../components/ChatSidebar.astro";
 import { siteConfig } from "../site.config";
 import "../styles/global.css";
@@ -15,7 +15,8 @@ const currentPath = currentPathFull.startsWith(basePath)
   : currentPathFull;
 
 const showChatSidebar = currentPath === "/";
-const brandName = siteConfig.title.replace(/\s*🦐$/, "");
+const brandName = siteConfig.title.replace(/(?:\s|\u{1F990})+$/u, "");
+const brandAssetVersion = "2026-04-14-1";
 
 const withBase = (path: string) => {
   const normalized = path.startsWith("/") ? path : `/${path}`;
@@ -26,10 +27,12 @@ const withBase = (path: string) => {
   return `${basePath.replace(/\/$/, "")}${normalized}`;
 };
 
+const brandMarkHref = `${withBase("/media/dreamclaw-mark.svg")}?v=${brandAssetVersion}`;
+
 const ui = {
-  homeAria: "返回首页",
-  tagline: "记录热爱，认真做梦 ✨",
-  navAria: "主导航"
+  homeAria: "\u8fd4\u56de\u9996\u9875",
+  tagline: "\u8bb0\u5f55\u70ed\u7231\uff0c\u8ba4\u771f\u505a\u68a6 \u2728",
+  navAria: "\u4e3b\u5bfc\u822a"
 };
 ---
 
@@ -43,7 +46,7 @@ const ui = {
     <meta name="description" content={description} />
     <meta name="author" content={siteConfig.author} />
     <meta name="theme-color" content="#f4f2e8" />
-    <link rel="icon" type="image/svg+xml" href={withBase("/media/dreamclaw-mark.svg")} />
+    <link rel="icon" type="image/svg+xml" href={brandMarkHref} />
     <link rel="canonical" href={new URL(currentPathFull, canonicalBase).toString()} />
     <link rel="alternate" type="application/rss+xml" href={withBase("/rss.xml")} title={`${siteConfig.title} RSS`} />
   </head>
@@ -53,7 +56,7 @@ const ui = {
       <header class="site-header">
         <a href={withBase("/")} class="brand" aria-label={ui.homeAria}>
           <span class="brand-mark">
-            <img src={withBase("/media/dreamclaw-mark.svg")} alt="" width="96" height="96" />
+            <img src={brandMarkHref} alt="" width="96" height="96" />
           </span>
           <span class="brand-text">
             <strong>{brandName}</strong>
@@ -93,4 +96,3 @@ const ui = {
     {showChatSidebar && <ChatSidebar />}
   </body>
 </html>
-
