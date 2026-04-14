@@ -1,4 +1,4 @@
-﻿---
+---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { siteConfig } from "../site.config";
 ---
@@ -794,7 +794,7 @@ import { siteConfig } from "../site.config";
 
       saveSettings();
 
-      const articleSlug = path.split("/").pop().replace(/\.md$/, "");
+      const articleSlug = slugify(path.split("/").pop().replace(/\.md$/, ""));
       const articleUrl = getPublishedArticleUrl(articleSlug);
       const commitUrl = result?.commit?.html_url || "";
       const extra = commitUrl ? `，提交：${commitUrl}` : "";

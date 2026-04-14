@@ -8,10 +8,11 @@
     "start": "astro dev",
     "build": "astro build",
     "prebuild": "npm run sync:blog-media && npm run check:posts",
+    "postbuild": "node scripts/sync-blog-media.mjs dist-blog",
     "preview": "astro preview",
     "check": "astro check",
     "check:posts": "node scripts/validate-blog-frontmatter.mjs",
-    "sync:blog-media": "node scripts/sync-blog-media.mjs",
+    "sync:blog-media": "node scripts/sync-blog-media.mjs public-src",
     "new:daily": "powershell -ExecutionPolicy Bypass -File scripts/new-daily-post.ps1"
   },
   "dependencies": {
