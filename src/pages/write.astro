@@ -137,6 +137,7 @@ import { siteConfig } from "../site.config";
 (() => {
   const STORAGE = "shrimp.writer.settings.v1";
   const BLOG_DIR = "src/content/blog";
+  const AUDIO_FILE_RE = /\.(mp3|wav|ogg|m4a|aac|flac)(?:[?#].*)?$/i;
 
   const form = document.querySelector("[data-writer-form]");
   if (!form) return;
@@ -251,6 +252,163 @@ import { siteConfig } from "../site.config";
     const basePath = markerIndex >= 0 ? normalizedPath.slice(0, markerIndex) : "";
     const articlePath = `${basePath}/blog/${articleSlug}/`.replace(/\/{2,}/g, "/");
     return new URL(articlePath, window.location.origin).toString();
+  }
+
+  function isLikelyAudioRef(value) {
+    const text = String(value || "").trim();
+    if (!text) return false;
+    if (text.startsWith("data:audio/")) return true;
+
+    try {
+      const url = /^https?:\/\//i.test(text) ? new URL(text) : new URL(text, window.location.origin);
+      return AUDIO_FILE_RE.test(url.pathname) || AUDIO_FILE_RE.test(url.href);
+    } catch {
+      return AUDIO_FILE_RE.test(text);
+    }
+  }
+
+  function collectAudioReferences(text) {
+    const refs = new Set();
+    const source = String(text || "");
+    const patterns = [
+      /<(?:audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi,
+      /\[[^\]]*\]\(([^)]+)\)/gi,
+      /(https?:\/\/[^\s)"']+\.(?:mp3|wav|ogg|m4a|aac|flac)(?:\?[^\s)"']*)?)/gi,
+      /(?:^|[\s(>])((?:\/|\.\/|blog\/|src\/content\/blog\/|public\/)[^\s)"'\]]+\.(?:mp3|wav|ogg|m4a|aac|flac)(?:\?[^\s)"']*)?)/gi
+    ];
+
+    for (const pattern of patterns) {
+      let match = pattern.exec(source);
+      while (match) {
+        const candidate = String(match[1] || "").trim();
+        if (isLikelyAudioRef(candidate)) {
+          refs.add(candidate);
+        }
+        match = pattern.exec(source);
+      }
+    }
+
+    return Array.from(refs);
+  }
+
+  function normalizeAudioRepoPath(value) {
+    const text = String(value || "").trim();
+    if (!text || /^https?:\/\//i.test(text) || text.startsWith("data:")) {
+      return "";
+    }
+
+    const normalized = text.replace(/\\/g, "/").replace(/^\.\//, "");
+
+    if (normalized.startsWith("/blog/")) {
+      return `${BLOG_DIR}/${normalized.slice("/blog/".length)}`;
+    }
+
+    if (normalized.startsWith("blog/")) {
+      return `${BLOG_DIR}/${normalized.slice("blog/".length)}`;
+    }
+
+    if (normalized.startsWith("/src/content/blog/")) {
+      return normalized.slice(1);
+    }
+
+    if (normalized.startsWith("src/content/blog/")) {
+      return normalized;
+    }
+
+    if (normalized.startsWith("/")) {
+      return `public/${normalized.slice(1)}`;
+    }
+
+    if (normalized.startsWith("public/")) {
+      return normalized;
+    }
+
+    return `${BLOG_DIR}/${normalized}`;
+  }
+
+  async function probePlayableAudioUrl(url, timeoutMs = 12000) {
+    return await new Promise((resolve) => {
+      const audio = document.createElement("audio");
+      let settled = false;
+
+      const finish = (ok, reason = "") => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        for (const [name, handler] of listeners) {
+          audio.removeEventListener(name, handler);
+        }
+        audio.pause();
+        audio.removeAttribute("src");
+        try {
+          audio.load();
+        } catch {
+          // ignore cleanup failure
+        }
+        resolve({ ok, reason });
+      };
+
+      const listeners = [
+        ["loadedmetadata", () => finish(true)],
+        ["canplay", () => finish(true)],
+        ["canplaythrough", () => finish(true)],
+        ["error", () => finish(false, "浏览器无法加载这个音频地址")],
+        ["abort", () => finish(false, "音频加载被中断")]
+      ];
+
+      const timer = window.setTimeout(() => {
+        finish(false, "音频地址检查超时");
+      }, timeoutMs);
+
+      for (const [name, handler] of listeners) {
+        audio.addEventListener(name, handler, { once: true });
+      }
+
+      audio.preload = "metadata";
+      audio.src = url;
+      audio.load();
+    });
+  }
+
+  async function validateAudioReferences({ config, headers, markdown }) {
+    const refs = collectAudioReferences(markdown);
+    if (!refs.length) return [];
+
+    const errors = [];
+
+    for (const ref of refs) {
+      if (ref.startsWith("data:audio/")) {
+        continue;
+      }
+
+      const repoPath = normalizeAudioRepoPath(ref);
+      if (repoPath) {
+        const sha = await fetchFileSha({
+          owner: config.owner,
+          repo: config.repo,
+          branch: config.branch,
+          path: repoPath,
+          headers
+        });
+
+        if (!sha) {
+          errors.push(`音频文件不存在：${repoPath}`);
+        }
+        continue;
+      }
+
+      if (/^https?:\/\//i.test(ref)) {
+        const result = await probePlayableAudioUrl(ref);
+        if (!result.ok) {
+          errors.push(`音频外链不可播放：${ref}${result.reason ? `（${result.reason}）` : ""}`);
+        }
+        continue;
+      }
+
+      errors.push(`无法识别的音频地址：${ref}`);
+    }
+
+    return errors;
   }
 
   function buildFilename() {
@@ -755,6 +913,15 @@ import { siteConfig } from "../site.config";
       const markdown = buildMarkdown();
       const encodedPath = encodeRepoPath(path);
       const headers = getHeaders(config.token);
+      const audioErrors = await validateAudioReferences({
+        config,
+        headers,
+        markdown
+      });
+
+      if (audioErrors.length) {
+        throw new Error(audioErrors.join("；"));
+      }
 
       const sha = await fetchFileSha({
         owner: config.owner,

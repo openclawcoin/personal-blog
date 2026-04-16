@@ -1,8 +1,10 @@
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const BLOG_DIR = path.resolve("src/content/blog");
+const PUBLIC_DIR = path.resolve("public");
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const AUDIO_EXT_RE = /\.(mp3|wav|ogg|m4a|aac|flac)(?:[?#].*)?$/i;
 
 function stripQuotes(value) {
   const text = String(value ?? "").trim();
@@ -72,7 +74,7 @@ function parseInlineArray(raw) {
 
 function parseFrontmatter(text) {
   const normalized = String(text ?? "").replace(/^\uFEFF/, "");
-  const matched = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  const matched = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
 
   if (!matched) {
     throw new Error("Missing frontmatter block at the top of the file");
@@ -124,7 +126,10 @@ function parseFrontmatter(text) {
     data[key] = stripQuotes(rawValue);
   }
 
-  return data;
+  return {
+    data,
+    body: matched[2] ?? ""
+  };
 }
 
 function isValidDateText(dateText) {
@@ -139,6 +144,153 @@ function isValidDateText(dateText) {
     date.getUTCMonth() === month - 1 &&
     date.getUTCDate() === day
   );
+}
+
+function isLikelyAudioRef(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return false;
+  if (text.startsWith("data:audio/")) return true;
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const url = new URL(text);
+      return AUDIO_EXT_RE.test(url.pathname) || AUDIO_EXT_RE.test(url.href);
+    } catch {
+      return AUDIO_EXT_RE.test(text);
+    }
+  }
+
+  return AUDIO_EXT_RE.test(text);
+}
+
+function collectAudioRefs(data, body) {
+  const refs = new Set();
+  const directFields = [data.audio, data.audioUrl, data.music];
+
+  for (const value of directFields) {
+    if (isLikelyAudioRef(value)) {
+      refs.add(String(value).trim());
+    }
+  }
+
+  const text = String(body ?? "");
+  const patterns = [
+    /<(?:audio|source)\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi,
+    /\[[^\]]*\]\(([^)]+)\)/gi,
+    /(https?:\/\/[^\s)"']+\.(?:mp3|wav|ogg|m4a|aac|flac)(?:\?[^\s)"']*)?)/gi,
+    /(?:^|[\s(>])((?:\/|\.\/|blog\/|src\/content\/blog\/|public\/)[^\s)"'\]]+\.(?:mp3|wav|ogg|m4a|aac|flac)(?:\?[^\s)"']*)?)/gi
+  ];
+
+  for (const pattern of patterns) {
+    let match = pattern.exec(text);
+    while (match) {
+      const candidate = String(match[1] ?? "").trim();
+      if (isLikelyAudioRef(candidate)) {
+        refs.add(candidate);
+      }
+      match = pattern.exec(text);
+    }
+  }
+
+  return Array.from(refs);
+}
+
+function normalizeLocalAudioPath(value) {
+  const text = String(value ?? "").trim();
+  if (!text || /^https?:\/\//i.test(text) || text.startsWith("data:")) {
+    return "";
+  }
+
+  const normalized = text.replace(/\\/g, "/").replace(/^\.\//, "");
+
+  if (normalized.startsWith("/blog/")) {
+    return path.join(BLOG_DIR, normalized.slice("/blog/".length));
+  }
+
+  if (normalized.startsWith("blog/")) {
+    return path.join(BLOG_DIR, normalized.slice("blog/".length));
+  }
+
+  if (normalized.startsWith("/src/content/blog/")) {
+    return path.resolve(normalized.slice(1));
+  }
+
+  if (normalized.startsWith("src/content/blog/")) {
+    return path.resolve(normalized);
+  }
+
+  if (normalized.startsWith("/")) {
+    return path.join(PUBLIC_DIR, normalized.slice(1));
+  }
+
+  if (normalized.startsWith("public/")) {
+    return path.resolve(normalized);
+  }
+
+  return path.join(BLOG_DIR, normalized);
+}
+
+async function fileExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function validateRemoteAudio(url) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Range: "bytes=0-1"
+      },
+      redirect: "follow",
+      signal: controller.signal
+    });
+
+    if (response.ok) {
+      return "";
+    }
+
+    return `audio URL is not publicly accessible (${response.status}): ${url}`;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return `audio URL check failed: ${url} (${message})`;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function validateAudioRefs(fileName, data, body) {
+  const refs = collectAudioRefs(data, body);
+  const errors = [];
+
+  for (const ref of refs) {
+    if (/^https?:\/\//i.test(ref)) {
+      const remoteError = await validateRemoteAudio(ref);
+      if (remoteError) {
+        errors.push(remoteError);
+      }
+      continue;
+    }
+
+    if (ref.startsWith("data:audio/")) {
+      continue;
+    }
+
+    const localPath = normalizeLocalAudioPath(ref);
+    if (!localPath) continue;
+
+    if (!(await fileExists(localPath))) {
+      errors.push(`audio file referenced by ${fileName} does not exist: ${ref}`);
+    }
+  }
+
+  return errors;
 }
 
 function validateData(data) {
@@ -189,13 +341,14 @@ async function main() {
 
     try {
       const text = await readFile(fullPath, "utf8");
-      const data = parseFrontmatter(text);
+      const { data, body } = parseFrontmatter(text);
       const errors = validateData(data);
+      const audioErrors = await validateAudioRefs(file, data, body);
 
-      if (errors.length) {
+      if (errors.length || audioErrors.length) {
         failed += 1;
         console.error(`\n[FAIL] ${file}`);
-        for (const message of errors) {
+        for (const message of [...errors, ...audioErrors]) {
           console.error(`  - ${message}`);
         }
       }

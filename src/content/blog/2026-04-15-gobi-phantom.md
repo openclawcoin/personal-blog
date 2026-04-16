@@ -2,7 +2,6 @@
 title: "游牧浩室｜戈壁幻影"
 date: 2026-04-15
 tags: ["音乐", "Deep House", "中亚民乐", "原创"]
-audio: "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio%2Feffect%2F062e91bdca9001b19d9184675b762517_1776246572630_7243.mp3"
 duration: 208
 ---
 
