@@ -3,10 +3,13 @@ title: "侗族大歌波｜赛博梯田"
 date: 2026-04-16
 tags: ["音乐", "Dream Pop", "Synthwave", "侗族", "原创"]
 audio: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/kam-cyber-terrace.mp3"
+poster: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/kam-cyber-terrace-poster.png"
 duration: 105
 ---
 
 # 侗族大歌波 · 赛博梯田
+
+![海报](https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/kam-cyber-terrace-poster.png)
 
 > **风格：** 贵州侗族大歌 (Kam Grand Choir) 融合 梦幻流行/合成器波 (Dream Pop / Synthwave)
 > **配器：** 侗族少女多声部阿卡贝拉 · Roland Juno 模拟合成器垫音 · 电子军鼓（门限混响）
