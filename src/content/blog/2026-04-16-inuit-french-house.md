@@ -3,10 +3,13 @@ title: "因纽特法式浩室｜极地的舞池"
 date: 2026-04-16
 tags: ["音乐", "French House", "因纽特", "原创"]
 audio: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/inuit-polar-dance-floor.mp3"
+poster: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/inuit-polar-poster.png"
 duration: 140
 ---
 
 # 因纽特法式浩室 · 极地的舞池
+
+![海报](https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/inuit-polar-poster.png)
 
 > **风格：** 因纽特传统喉音唱法 (Katajjaq) 缝合 法式浩室 (French House)
 > **配器：** 两名女性急促呼吸与喉腔共振采样 · 4/4 滤波器底鼓 · 侧链压缩电子贝斯
