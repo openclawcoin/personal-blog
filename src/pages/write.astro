@@ -244,6 +244,112 @@ import { siteConfig } from "../site.config";
     nodes.status.dataset.type = kind;
   }
 
+  function sleep(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+
+  async function fetchWorkflowRuns({ owner, repo, branch, headers, headSha = "" }) {
+    const params = new URLSearchParams({
+      branch,
+      event: "push",
+      per_page: "10"
+    });
+    const url = `https://api.github.com/repos/${owner}/${repo}/actions/runs?${params.toString()}`;
+    const resp = await fetch(url, { headers });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      const message = data?.message || `读取部署记录失败（HTTP ${resp.status}）`;
+      throw new Error(message);
+    }
+
+    const runs = Array.isArray(data.workflow_runs) ? data.workflow_runs : [];
+    const relevantRuns = runs.filter((run) => {
+      const workflowPath = String(run?.path || "");
+      const workflowName = String(run?.name || "");
+      return workflowPath.endsWith("deploy-pages.yml") || workflowName.includes("GitHub Pages");
+    });
+
+    if (!headSha) return relevantRuns;
+    return relevantRuns.filter((run) => String(run?.head_sha || "") === headSha);
+  }
+
+  async function fetchRunJobs({ owner, repo, runId, headers }) {
+    const url = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${runId}/jobs`;
+    const resp = await fetch(url, { headers });
+    const data = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      const message = data?.message || `读取部署任务详情失败（HTTP ${resp.status}）`;
+      throw new Error(message);
+    }
+
+    return data;
+  }
+
+  function summarizeRunFailure(run, jobsPayload) {
+    const jobs = Array.isArray(jobsPayload?.jobs) ? jobsPayload.jobs : [];
+
+    for (const job of jobs) {
+      if (String(job?.conclusion || "") !== "failure") continue;
+
+      const failedStep = Array.isArray(job?.steps)
+        ? job.steps.find((step) => String(step?.conclusion || "") === "failure")
+        : null;
+
+      const detail = failedStep ? `${job.name} / ${failedStep.name}` : String(job?.name || "build");
+      const runUrl = String(run?.html_url || "");
+      return runUrl ? `${detail}（查看：${runUrl}）` : detail;
+    }
+
+    const conclusion = String(run?.conclusion || "failure");
+    const runUrl = String(run?.html_url || "");
+    return runUrl ? `GitHub Actions ${conclusion}（查看：${runUrl}）` : `GitHub Actions ${conclusion}`;
+  }
+
+  async function waitForDeploymentResult({
+    owner,
+    repo,
+    branch,
+    headers,
+    headSha,
+    timeoutMs = 180000,
+    pollMs = 5000
+  }) {
+    const startedAt = Date.now();
+    let latestRun = null;
+
+    while (Date.now() - startedAt < timeoutMs) {
+      const runs = await fetchWorkflowRuns({ owner, repo, branch, headers, headSha });
+      const run = runs[0];
+
+      if (run) latestRun = run;
+
+      if (!run) {
+        await sleep(pollMs);
+        continue;
+      }
+
+      if (String(run?.status || "") !== "completed") {
+        await sleep(pollMs);
+        continue;
+      }
+
+      if (String(run?.conclusion || "") === "success") {
+        return { state: "success", run };
+      }
+
+      const jobs = await fetchRunJobs({ owner, repo, runId: run.id, headers }).catch(() => null);
+      return { state: "failure", run, jobs };
+    }
+
+    if (!latestRun) {
+      return { state: "missing" };
+    }
+
+    return { state: "timeout", run: latestRun };
+  }
+
   function getPublishedArticleUrl(articleSlug) {
     const pathname = String(window.location.pathname || "/");
     const normalizedPath = pathname.endsWith("/") ? pathname : `${pathname}/`;
@@ -963,11 +1069,46 @@ import { siteConfig } from "../site.config";
 
       const articleSlug = slugify(path.split("/").pop().replace(/\.md$/, ""));
       const articleUrl = getPublishedArticleUrl(articleSlug);
+      const commitSha = result?.commit?.sha || "";
       const commitUrl = result?.commit?.html_url || "";
-      const extra = commitUrl ? `，提交：${commitUrl}` : "";
+      const commitExtra = commitUrl ? `，提交：${commitUrl}` : "";
 
       await listPosts({ silent: true, preserveSelection: path });
-      setStatus(`发布成功，预计部署完成后可访问：${articleUrl}${extra}`, "ok");
+
+      if (!commitSha) {
+        setStatus(`代码已提交，但暂时拿不到部署记录，请稍后查看：${articleUrl}${commitExtra}`, "warn");
+        return;
+      }
+
+      setStatus("代码已提交，正在等待 GitHub Pages 部署结果...", "loading");
+
+      const deployment = await waitForDeploymentResult({
+        owner: config.owner,
+        repo: config.repo,
+        branch: config.branch,
+        headers,
+        headSha: commitSha
+      });
+
+      if (deployment.state === "success") {
+        const runUrl = deployment.run?.html_url || "";
+        const runExtra = runUrl ? `，部署：${runUrl}` : commitExtra;
+        setStatus(`发布成功，页面已上线：${articleUrl}${runExtra}`, "ok");
+        return;
+      }
+
+      if (deployment.state === "failure") {
+        throw new Error(`GitHub Pages 部署失败：${summarizeRunFailure(deployment.run, deployment.jobs)}`);
+      }
+
+      if (deployment.state === "timeout") {
+        const runUrl = deployment.run?.html_url || "";
+        const runExtra = runUrl ? `，可继续查看：${runUrl}` : commitExtra;
+        setStatus(`代码已提交，部署还在进行中，请稍后刷新查看：${articleUrl}${runExtra}`, "warn");
+        return;
+      }
+
+      setStatus(`代码已提交，但暂时还没查到部署记录，请稍后去 Actions 查看：${articleUrl}${commitExtra}`, "warn");
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知错误";
       setStatus(`发布失败：${message}`, "error");

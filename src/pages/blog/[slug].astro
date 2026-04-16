@@ -1,4 +1,4 @@
----
+﻿---
 export const prerender = true;
 import { getCollection, render, type CollectionEntry } from "astro:content";
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -41,11 +41,14 @@ const pageTitle = `${post.data.title} | ${siteConfig.title}`;
     )}
 
     {post.data.audio && (
-      <figure class="media-block article-audio">
-        <audio controls preload="none">
+      <figure class="media-block article-audio" data-audio-block>
+        <audio controls preload="none" data-audio-player>
           <source src={post.data.audio} type="audio/mpeg" />
           您的浏览器不支持音频播放。
         </audio>
+        <p class="audio-fallback" data-audio-fallback hidden>
+          这段音频当前无法加载，通常是外链失效或源站拒绝访问。重新上传可公开访问的 mp3 后会更稳。
+        </p>
       </figure>
     )}
 
@@ -54,3 +57,42 @@ const pageTitle = `${post.data.title} | ${siteConfig.title}`;
     </div>
   </article>
 </BaseLayout>
+
+{post.data.audio && (
+  <script is:inline>
+    (() => {
+      const blocks = document.querySelectorAll("[data-audio-block]");
+
+      for (const block of blocks) {
+        const audio = block.querySelector("[data-audio-player]");
+        const fallback = block.querySelector("[data-audio-fallback]");
+        if (!(audio instanceof HTMLAudioElement) || !(fallback instanceof HTMLElement)) continue;
+
+        const showFallback = () => {
+          fallback.hidden = false;
+          block.setAttribute("data-audio-state", "error");
+        };
+
+        audio.addEventListener("error", showFallback, { once: true });
+
+        const source = audio.querySelector("source");
+        if (source) {
+          source.addEventListener("error", showFallback, { once: true });
+        }
+      }
+    })();
+  </script>
+)}
+
+<style>
+  .audio-fallback {
+    margin: 0.7rem 0 0;
+    color: #8b4d10;
+    font-size: 0.92rem;
+    line-height: 1.6;
+  }
+
+  .article-audio[data-audio-state="error"] audio {
+    opacity: 0.68;
+  }
+</style>

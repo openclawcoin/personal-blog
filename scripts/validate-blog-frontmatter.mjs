@@ -268,12 +268,13 @@ async function validateRemoteAudio(url) {
 async function validateAudioRefs(fileName, data, body) {
   const refs = collectAudioRefs(data, body);
   const errors = [];
+  const warnings = [];
 
   for (const ref of refs) {
     if (/^https?:\/\//i.test(ref)) {
       const remoteError = await validateRemoteAudio(ref);
       if (remoteError) {
-        errors.push(remoteError);
+        warnings.push(remoteError);
       }
       continue;
     }
@@ -290,7 +291,10 @@ async function validateAudioRefs(fileName, data, body) {
     }
   }
 
-  return errors;
+  return {
+    errors,
+    warnings
+  };
 }
 
 function validateData(data) {
@@ -335,6 +339,7 @@ async function main() {
     .sort((a, b) => a.localeCompare(b, "zh-CN"));
 
   let failed = 0;
+  let warningCount = 0;
 
   for (const file of files) {
     const fullPath = path.join(BLOG_DIR, file);
@@ -343,13 +348,21 @@ async function main() {
       const text = await readFile(fullPath, "utf8");
       const { data, body } = parseFrontmatter(text);
       const errors = validateData(data);
-      const audioErrors = await validateAudioRefs(file, data, body);
+      const { errors: audioErrors, warnings: audioWarnings } = await validateAudioRefs(file, data, body);
 
       if (errors.length || audioErrors.length) {
         failed += 1;
         console.error(`\n[FAIL] ${file}`);
         for (const message of [...errors, ...audioErrors]) {
           console.error(`  - ${message}`);
+        }
+      }
+
+      if (audioWarnings.length) {
+        warningCount += audioWarnings.length;
+        console.warn(`\n[WARN] ${file}`);
+        for (const message of audioWarnings) {
+          console.warn(`  - ${message}`);
         }
       }
     } catch (error) {
@@ -363,6 +376,11 @@ async function main() {
   if (failed > 0) {
     console.error(`\nFrontmatter validation failed for ${failed} file(s).`);
     process.exit(1);
+  }
+
+  if (warningCount > 0) {
+    console.log(`Frontmatter validation passed for ${files.length} post(s) with ${warningCount} warning(s).`);
+    return;
   }
 
   console.log(`Frontmatter validation passed for ${files.length} post(s).`);
