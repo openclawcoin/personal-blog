@@ -2,7 +2,7 @@
 title: "侗族大歌波｜赛博梯田"
 date: 2026-04-16
 tags: ["音乐", "Dream Pop", "Synthwave", "侗族", "原创"]
-audio: "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio/effect/062fe122044b2d275eba548db99b3256_1776332390335_9181.mp3"
+audio: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/kam-cyber-terrace.mp3"
 duration: 105
 ---
 
@@ -26,39 +26,25 @@ duration: 105
 ## 结构说明
 
 **Intro — 梯田沉睡**
-合成器垫音如云海缓缓铺开，
-隐约传来第一声侗语吟唱。
+合成器垫音如云海缓缓铺开，隐约传来第一声侗语吟唱。
 
 **Build-up — 众声汇聚**
-多声部逐渐叠加，
-复调如梯田层层叠叠展开。
-电子军鼓轻轻敲门。
+多声部逐渐叠加，复调如梯田层层叠叠展开。电子军鼓轻轻敲门。
 
 **Drop — 银河倾泻**
-所有声部同步爆发，
-侗族大歌与合成器垫音完美交织，
-"古老人类声音在未来数字宇宙中回荡"的史诗美学。
+所有声部同步爆发，侗族大歌与合成器垫音完美交织。
 
 **Breakdown — 星海呼吸**
 pad音与余音在耳边缓缓消散。
 
 **Outro — 回声渐散**
-人声渐渐隐入电子云层，
-只剩 pad 音淡淡回响。
+人声渐渐隐入电子云层，只剩 pad 音淡淡回响。
 
 ---
 
 ## 生成提示词
 
-Guizhou Kam Grand Choir (multi-part acapella) meets Dream Pop/Synthwave: 
-ethereal female vocal polyphony, crystal clear ancient Chinese folk choir 
-harmonies layered over massive Roland Juno-106 style synth pads, gated 
-electronic snare with huge reverb tails, 90 BPM major pentatonic scale, 
-ultra spacious dream pop atmosphere. Imagery: terraced rice fields 
-reflecting the Milky Way, glowing traditional wind-and-rain bridge, flocks 
-of birds flying through electronic clouds, starry night sky above flooded 
-terraces. The synth should lift the choir like wind under feathers, 
-creating epic "ancient human voice echoing in future digital cosmos" aesthetic.
+Guizhou Kam Grand Choir (multi-part acapella) meets Dream Pop/Synthwave: ethereal female vocal polyphony, crystal clear ancient Chinese folk choir harmonies layered over massive Roland Juno-106 style synth pads, gated electronic snare with huge reverb tails, 90 BPM major pentatonic scale, ultra spacious dream pop atmosphere. Imagery: terraced rice fields reflecting the Milky Way, glowing wind-and-rain bridge, flocks of birds flying through electronic clouds. The synth lifts the choir like wind under feathers, creating epic "ancient human voice echoing in future digital cosmos" aesthetic.
 
 ---
 
