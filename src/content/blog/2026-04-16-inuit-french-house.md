@@ -2,8 +2,8 @@
 title: "因纽特法式浩室｜极地的舞池"
 date: 2026-04-16
 tags: ["音乐", "French House", "因纽特", "原创"]
-audio: ""
-duration: 0
+audio: "https://minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com/audio/effect/062fd8657a55907c97eb940613eb9fe5_1776330155431_2125.mp3"
+duration: 129
 ---
 
 # 因纽特法式浩室 · 极地的舞池
@@ -11,7 +11,7 @@ duration: 0
 > **风格：** 因纽特传统喉音唱法 (Katajjaq) 缝合 法式浩室 (French House)
 > **配器：** 两名女性急促呼吸与喉腔共振采样 · 4/4 滤波器底鼓 · 侧链压缩电子贝斯
 > **节奏：** 125 BPM · C小调
-> **时长：** 待定
+> **时长：** 2分09秒
 
 ---
 
