@@ -1,7 +1,7 @@
 import { defineCollection, z } from "astro:content";
 
-function normalizeBlogMediaPath(value) {
-  const text = String(value || "").trim();
+function normalizeBlogMediaPath(value: unknown) {
+  const text = String(value ?? "").trim();
   if (!text) return undefined;
 
   if (/^(https?:)?\/\//i.test(text) || text.startsWith("data:")) {
@@ -33,14 +33,26 @@ function normalizeBlogMediaPath(value) {
   return `/blog/${normalized}`;
 }
 
+function pickFirstText(...values: unknown[]) {
+  for (const value of values) {
+    const text = String(value ?? "").trim();
+    if (text) return text;
+  }
+
+  return "";
+}
+
 const blog = defineCollection({
   type: "content",
   schema: z
     .object({
-      title: z.string(),
-      description: z.string(),
+      title: z.string().min(1),
+      description: z.string().optional(),
+      summary: z.string().optional(),
+      excerpt: z.string().optional(),
       pubDate: z.coerce.date().optional(),
       publishDate: z.coerce.date().optional(),
+      date: z.coerce.date().optional(),
       updatedDate: z.coerce.date().optional(),
       coverImage: z.string().optional(),
       cover: z.string().optional(),
@@ -52,21 +64,21 @@ const blog = defineCollection({
       draft: z.boolean().default(false)
     })
     .superRefine((data, ctx) => {
-      if (!data.pubDate && !data.publishDate) {
+      if (!data.pubDate && !data.publishDate && !data.date) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "缺少日期字段：请填写 pubDate 或 publishDate。"
+          message: "Missing date field. Use pubDate, publishDate, or date."
         });
       }
     })
     .transform((data) => ({
-      title: data.title,
-      description: data.description,
-      pubDate: (data.pubDate ?? data.publishDate),
+      title: data.title.trim(),
+      description: pickFirstText(data.description, data.summary, data.excerpt, data.title),
+      pubDate: data.pubDate ?? data.publishDate ?? data.date,
       updatedDate: data.updatedDate,
       coverImage: normalizeBlogMediaPath(data.coverImage ?? data.cover ?? data.image),
       audio: normalizeBlogMediaPath(data.audio ?? data.audioUrl ?? data.music),
-      tags: data.tags,
+      tags: data.tags.map((tag) => tag.trim()).filter(Boolean),
       draft: data.draft
     }))
 });

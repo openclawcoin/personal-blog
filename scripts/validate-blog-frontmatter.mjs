@@ -5,7 +5,7 @@ const BLOG_DIR = path.resolve("src/content/blog");
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function stripQuotes(value) {
-  const text = String(value || "").trim();
+  const text = String(value ?? "").trim();
   if (!text) return "";
 
   if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
@@ -16,7 +16,7 @@ function stripQuotes(value) {
 }
 
 function hasUnclosedQuote(raw) {
-  const text = String(raw || "").trim();
+  const text = String(raw ?? "").trim();
   if (!text) return false;
   if (text.startsWith('"') && !text.endsWith('"')) return true;
   if (text.startsWith("'") && !text.endsWith("'")) return true;
@@ -24,9 +24,9 @@ function hasUnclosedQuote(raw) {
 }
 
 function parseInlineArray(raw) {
-  const text = String(raw || "").trim();
+  const text = String(raw ?? "").trim();
   if (!(text.startsWith("[") && text.endsWith("]"))) {
-    throw new Error('tags 内联数组格式错误，应为 ["a", "b"]');
+    throw new Error('tags must use inline array syntax like ["a", "b"]');
   }
 
   const inner = text.slice(1, -1).trim();
@@ -63,7 +63,7 @@ function parseInlineArray(raw) {
   }
 
   if (quote) {
-    throw new Error("tags 内联数组中存在未闭合引号");
+    throw new Error("tags contains an unclosed quote");
   }
 
   parts.push(cursor.trim());
@@ -71,11 +71,11 @@ function parseInlineArray(raw) {
 }
 
 function parseFrontmatter(text) {
-  const normalized = String(text || "").replace(/^\uFEFF/, "");
+  const normalized = String(text ?? "").replace(/^\uFEFF/, "");
   const matched = normalized.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
 
   if (!matched) {
-    throw new Error("缺少 frontmatter，文件必须以 --- 开头并以 --- 结束");
+    throw new Error("Missing frontmatter block at the top of the file");
   }
 
   const data = {};
@@ -87,14 +87,14 @@ function parseFrontmatter(text) {
 
     const keyMatch = line.match(/^([A-Za-z][\w]*)\s*:\s*(.*)$/);
     if (!keyMatch) {
-      throw new Error(`第 ${i + 1} 行格式无效：${line}`);
+      throw new Error(`Invalid frontmatter syntax on line ${i + 1}: ${line}`);
     }
 
     const key = keyMatch[1];
     const rawValue = keyMatch[2] ?? "";
 
     if (hasUnclosedQuote(rawValue)) {
-      throw new Error(`字段 ${key} 存在未闭合引号`);
+      throw new Error(`Field "${key}" contains an unclosed quote`);
     }
 
     if (key === "tags") {
@@ -128,10 +128,10 @@ function parseFrontmatter(text) {
 }
 
 function isValidDateText(dateText) {
-  const text = String(dateText || "").trim();
+  const text = String(dateText ?? "").trim();
   if (!DATE_RE.test(text)) return false;
 
-  const [year, month, day] = text.split("-").map((v) => Number(v));
+  const [year, month, day] = text.split("-").map((value) => Number(value));
   const date = new Date(Date.UTC(year, month - 1, day));
 
   return (
@@ -141,48 +141,35 @@ function isValidDateText(dateText) {
   );
 }
 
-function validateData(fileName, data) {
+function validateData(data) {
   const errors = [];
+  const dateText = [data.pubDate, data.publishDate, data.date]
+    .map((value) => String(value ?? "").trim())
+    .find(Boolean);
 
-  const hasPubDate = "pubDate" in data && String(data.pubDate || "").trim();
-  const hasPublishDate = "publishDate" in data && String(data.publishDate || "").trim();
-  const dateText = hasPubDate ? data.pubDate : hasPublishDate ? data.publishDate : "";
-
-  if (!("title" in data) || !String(data.title || "").trim()) {
-    errors.push("title 不能为空");
-  }
-
-  if (!("description" in data) || !String(data.description || "").trim()) {
-    errors.push("description 不能为空");
+  if (!String(data.title ?? "").trim()) {
+    errors.push("title cannot be empty");
   }
 
   if (!dateText) {
-    errors.push("缺少日期字段：请填写 pubDate 或 publishDate");
+    errors.push("Missing date field. Use pubDate, publishDate, or date.");
   } else if (!isValidDateText(dateText)) {
-    errors.push(`日期字段无效：${dateText}（应为 YYYY-MM-DD）`);
-  }
-
-  if (hasPubDate && hasPublishDate) {
-    errors.push("同时存在 pubDate 和 publishDate，请保留一个日期字段");
+    errors.push(`Invalid date value "${dateText}". Use YYYY-MM-DD.`);
   }
 
   if ("tags" in data) {
     if (!Array.isArray(data.tags)) {
-      errors.push("tags 必须是数组");
-    } else if (data.tags.some((tag) => !String(tag || "").trim())) {
-      errors.push("tags 中包含空值");
+      errors.push("tags must be an array");
+    } else if (data.tags.some((tag) => !String(tag ?? "").trim())) {
+      errors.push("tags cannot contain empty values");
     }
   }
 
   if ("draft" in data) {
-    const draftText = String(data.draft || "").trim().toLowerCase();
+    const draftText = String(data.draft ?? "").trim().toLowerCase();
     if (!(draftText === "true" || draftText === "false")) {
-      errors.push("draft 必须是 true 或 false");
+      errors.push('draft must be either "true" or "false"');
     }
-  }
-
-  if (String(data.title || "").includes("�") || String(data.description || "").includes("�")) {
-    errors.push("title/description 含乱码字符（�），请检查编码");
   }
 
   return errors;
@@ -203,7 +190,7 @@ async function main() {
     try {
       const text = await readFile(fullPath, "utf8");
       const data = parseFrontmatter(text);
-      const errors = validateData(file, data);
+      const errors = validateData(data);
 
       if (errors.length) {
         failed += 1;
@@ -216,16 +203,16 @@ async function main() {
       failed += 1;
       const message = error instanceof Error ? error.message : String(error);
       console.error(`\n[FAIL] ${file}`);
-      console.error(`  - 解析失败：${message}`);
+      console.error(`  - Failed to parse frontmatter: ${message}`);
     }
   }
 
   if (failed > 0) {
-    console.error(`\n校验失败：${failed} 个文章文件存在 frontmatter 问题。`);
+    console.error(`\nFrontmatter validation failed for ${failed} file(s).`);
     process.exit(1);
   }
 
-  console.log(`校验通过：${files.length} 篇文章 frontmatter 格式正常。`);
+  console.log(`Frontmatter validation passed for ${files.length} post(s).`);
 }
 
 main().catch((error) => {
