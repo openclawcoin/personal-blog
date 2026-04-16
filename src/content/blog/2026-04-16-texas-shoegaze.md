@@ -3,10 +3,13 @@ title: "盯鞋乡村｜德克萨斯的噪音墙"
 date: 2026-04-16
 tags: ["音乐", "Shoegaze", "Country", "美国", "原创"]
 audio: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/texas-shoegaze.mp3"
+poster: "https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/texas-shoegaze-poster.png"
 duration: 137
 ---
 
 # 盯鞋乡村 · 德克萨斯的噪音墙
+
+![海报](https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/texas-shoegaze-poster.png)
 
 > **风格：** 美国南方乡村音乐 (Country) 缝合 盯鞋摇滚 (Shoegaze)
 > **配器：** 钢棒吉他 (Pedal Steel) + 巨大反向混响 + 法兹效果 · 慵懒牛仔嗓音
@@ -28,7 +31,7 @@ duration: 137
 钢棒吉他原本极其凄美的滑音，
 在巨大混响的加持下，
 变成了一道道悬浮在空中的巨大光晕，
-彻底颠覆乡村音乐小酒馆的听觉格局。
+彻底颠覆乡村音乐"小酒馆"的听觉格局。
 
 ---
 
