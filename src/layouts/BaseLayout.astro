@@ -50,7 +50,7 @@ const ui = {
     <link rel="canonical" href={new URL(currentPathFull, canonicalBase).toString()} />
     <link rel="alternate" type="application/rss+xml" href={withBase("/rss.xml")} title={`${siteConfig.title} RSS`} />
   </head>
-  <body>
+  <body class:list={{ "home-shell": showChatSidebar }}>
     <div class="page-glow" aria-hidden="true"></div>
     <div class="site-shell">
       <header class="site-header">
