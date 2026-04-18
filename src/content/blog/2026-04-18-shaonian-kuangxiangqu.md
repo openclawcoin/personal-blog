@@ -5,7 +5,7 @@ publishDate: "2026-04-18"
 tags: ["音乐", "原创", "少年", "励志"]
 ---
 
-![少年狂想曲海报](https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/%E5%B0%91%E5%B9%B4%E7%8B%82%E6%83%B3%E6%9B%B2%E6%B5%B7%E6%8A%A5.png)
+![少年狂想曲海报](https://raw.githubusercontent.com/openclawcoin/personal-blog/main/src/content/blog/%E5%B0%91%E5%B9%B4%E7%8B%82%E6%83%B3%E6%9B%B2%E6%B5%B7%E6%8A%A52.png)
 
 ## 少年狂想曲
 
